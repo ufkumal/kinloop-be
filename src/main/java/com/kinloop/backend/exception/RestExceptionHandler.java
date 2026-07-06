@@ -1,0 +1,59 @@
+package com.kinloop.backend.exception;
+
+import jakarta.validation.ConstraintViolationException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@RestControllerAdvice
+public class RestExceptionHandler {
+
+    @ExceptionHandler(EmailAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorResponse> handleEmailAlreadyExists(EmailAlreadyExistsException ex) {
+        return error(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidCredentials(InvalidCredentialsException ex) {
+        return error(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+    }
+
+    @ExceptionHandler(EmailNotVerifiedException.class)
+    public ResponseEntity<ApiErrorResponse> handleEmailNotVerified(EmailNotVerifiedException ex) {
+        return error(HttpStatus.FORBIDDEN, "please verify your email");
+    }
+
+    @ExceptionHandler(AccountNotActiveException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccountNotActive(AccountNotActiveException ex) {
+        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler({InvalidTokenException.class, IllegalArgumentException.class})
+    public ResponseEntity<ApiErrorResponse> handleBadRequest(RuntimeException ex) {
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(error ->
+                fieldErrors.putIfAbsent(error.getField(), error.getDefaultMessage())
+        );
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+        return ResponseEntity.status(status)
+                .body(new ApiErrorResponse("Validation failed", status.value(), fieldErrors));
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    private ResponseEntity<ApiErrorResponse> error(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(new ApiErrorResponse(message, status.value()));
+    }
+}
