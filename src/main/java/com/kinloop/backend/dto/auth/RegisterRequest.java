@@ -1,7 +1,6 @@
 package com.kinloop.backend.dto.auth;
 
 import com.kinloop.backend.entity.enums.UserRole;
-import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -20,8 +19,4 @@ public record RegisterRequest(
         UserRole role
 ) {
 
-    @AssertTrue(message = "role must be PARENT or WORKSHOP_OWNER")
-    public boolean isPublicRegistrationRole() {
-        return role == UserRole.PARENT || role == UserRole.WORKSHOP_OWNER;
-    }
 }
