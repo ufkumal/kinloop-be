@@ -7,7 +7,6 @@ import com.kinloop.backend.dto.auth.RegisterResponse;
 import com.kinloop.backend.entity.EmailVerificationToken;
 import com.kinloop.backend.entity.User;
 import com.kinloop.backend.entity.enums.UserRole;
-import com.kinloop.backend.entity.enums.UserStatus;
 import com.kinloop.backend.exception.AccountNotActiveException;
 import com.kinloop.backend.exception.EmailAlreadyExistsException;
 import com.kinloop.backend.exception.EmailNotVerifiedException;
@@ -61,8 +60,8 @@ public class AuthServiceImpl implements AuthService {
         if (userRepository.existsByEmail(req.email())) {
             throw new EmailAlreadyExistsException();
         }
-        if (req.role() != UserRole.PARENT && req.role() != UserRole.WORKSHOP_OWNER) {
-            throw new IllegalArgumentException("role must be PARENT or WORKSHOP_OWNER");
+        if (req.role() != UserRole.PARENT && req.role() != UserRole.WORKSHOP) {
+            throw new IllegalArgumentException("role must be PARENT or WORKSHOP");
         }
 
         User user = new User();
@@ -70,7 +69,7 @@ public class AuthServiceImpl implements AuthService {
         user.setPasswordHash(passwordEncoder.encode(req.password()));
         user.setRole(req.role());
         user.setEmailVerified(false);
-        user.setStatus(UserStatus.ACTIVE);
+        user.setActive(true);
         User savedUser = userRepository.save(user);
 
         String token = UUID.randomUUID().toString();
@@ -78,7 +77,7 @@ public class AuthServiceImpl implements AuthService {
         verificationToken.setToken(token);
         verificationToken.setUser(savedUser);
         verificationToken.setExpiresAt(OffsetDateTime.now().plusHours(EMAIL_VERIFICATION_EXPIRY_HOURS));
-        verificationToken.setUsed(false);
+        verificationToken.setUsedAt(null);
         emailVerificationTokenRepository.save(verificationToken);
 
         emailService.sendVerificationEmail(savedUser.getEmail(), token);
@@ -97,8 +96,7 @@ public class AuthServiceImpl implements AuthService {
 
         User user = verificationToken.getUser();
         user.setEmailVerified(true);
-        user.setEmailVerifiedAt(OffsetDateTime.now());
-        verificationToken.setUsed(true);
+        verificationToken.setUsedAt(OffsetDateTime.now());
     }
 
     @Override
@@ -113,7 +111,7 @@ public class AuthServiceImpl implements AuthService {
         if (!user.isEmailVerified()) {
             throw new EmailNotVerifiedException();
         }
-        if (user.getStatus() != UserStatus.ACTIVE) {
+        if (!user.isActive()) {
             throw new AccountNotActiveException();
         }
 
