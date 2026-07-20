@@ -37,7 +37,7 @@ public class QuestionnaireSessionService {
     @Transactional(readOnly = true)
     public SessionSummaryResponse summarise(QuestionnaireSession session, int ageMonths, int answeredCount) {
         List<Question> questions = questionRepository.findForAge(ageMonths, QuestionScope.CHILD);
-        String nextQuestionCode = answeredCount == 0 && !questions.isEmpty() ? questions.get(0).getCode() : null;
+        String nextQuestionCode = answeredCount == 0 && !questions.isEmpty() ? questions.getFirst().getCode() : null;
         return new SessionSummaryResponse(
                 session.getId(),
                 session.getStatus(),
