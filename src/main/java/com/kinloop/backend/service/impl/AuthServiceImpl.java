@@ -7,6 +7,7 @@ import com.kinloop.backend.dto.auth.RegisterResponse;
 import com.kinloop.backend.entity.EmailVerificationToken;
 import com.kinloop.backend.entity.ParentProfile;
 import com.kinloop.backend.entity.User;
+import com.kinloop.backend.entity.WorkshopProfile;
 import com.kinloop.backend.entity.enums.UserRole;
 import com.kinloop.backend.exception.AccountNotActiveException;
 import com.kinloop.backend.exception.EmailAlreadyExistsException;
@@ -16,6 +17,7 @@ import com.kinloop.backend.exception.InvalidTokenException;
 import com.kinloop.backend.repository.EmailVerificationTokenRepository;
 import com.kinloop.backend.repository.ParentProfileRepository;
 import com.kinloop.backend.repository.UserRepository;
+import com.kinloop.backend.repository.WorkshopProfileRepository;
 import com.kinloop.backend.security.JwtService;
 import com.kinloop.backend.service.AuthService;
 import com.kinloop.backend.service.EmailService;
@@ -42,13 +44,16 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final EmailService emailService;
     private final ParentProfileRepository parentProfileRepository;
+    private final WorkshopProfileRepository workshopProfileRepository;
 
     public AuthServiceImpl(
             UserRepository userRepository,
             EmailVerificationTokenRepository emailVerificationTokenRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            EmailService emailService, ParentProfileRepository parentProfileRepository
+            EmailService emailService,
+            ParentProfileRepository parentProfileRepository,
+            WorkshopProfileRepository workshopProfileRepository
     ) {
         this.userRepository = userRepository;
         this.emailVerificationTokenRepository = emailVerificationTokenRepository;
@@ -56,6 +61,7 @@ public class AuthServiceImpl implements AuthService {
         this.jwtService = jwtService;
         this.emailService = emailService;
         this.parentProfileRepository = parentProfileRepository;
+        this.workshopProfileRepository = workshopProfileRepository;
     }
 
     @Override
@@ -76,9 +82,7 @@ public class AuthServiceImpl implements AuthService {
         user.setActive(true);
         User savedUser = userRepository.save(user);
 
-        ParentProfile parentProfile = new ParentProfile();
-        parentProfile.setUserId(user.getId());
-        parentProfileRepository.save(parentProfile);
+        createProfile(savedUser);
 
         String token = UUID.randomUUID().toString();
         EmailVerificationToken verificationToken = new EmailVerificationToken();
@@ -90,6 +94,20 @@ public class AuthServiceImpl implements AuthService {
 
         emailService.sendVerificationEmail(savedUser.getEmail(), token);
         return new RegisterResponse("Registration successful. Please verify your email.");
+    }
+
+    private void createProfile(User user) {
+        if (user.getRole() == UserRole.PARENT) {
+            ParentProfile parentProfile = new ParentProfile();
+            parentProfile.setUserId(user.getId());
+            parentProfileRepository.save(parentProfile);
+            return;
+        }
+
+        WorkshopProfile workshopProfile = new WorkshopProfile();
+        workshopProfile.setUserId(user.getId());
+        workshopProfile.setName(user.getEmail());
+        workshopProfileRepository.save(workshopProfile);
     }
 
     @Override

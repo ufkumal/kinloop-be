@@ -4,6 +4,7 @@ import com.kinloop.backend.repository.ChildRepository;
 import com.kinloop.backend.repository.EmailVerificationTokenRepository;
 import com.kinloop.backend.repository.ParentProfileRepository;
 import com.kinloop.backend.repository.UserRepository;
+import com.kinloop.backend.repository.WorkshopProfileRepository;
 import com.kinloop.backend.repository.QuestionRepository;
 import com.kinloop.backend.repository.QuestionnaireSessionRepository;
 import java.lang.reflect.Proxy;
@@ -70,6 +71,11 @@ class KinloopBackendApplicationTests {
         @Bean
         QuestionnaireSessionRepository questionnaireSessionRepository() {
             return repositoryProxy(QuestionnaireSessionRepository.class);
+        }
+
+        @Bean
+        WorkshopProfileRepository workshopProfileRepository() {
+            return repositoryProxy(WorkshopProfileRepository.class);
         }
 
         private static <T> T repositoryProxy(Class<T> repositoryType) {
