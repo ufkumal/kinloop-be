@@ -5,6 +5,7 @@ import com.kinloop.backend.dto.auth.LoginRequest;
 import com.kinloop.backend.dto.auth.RegisterRequest;
 import com.kinloop.backend.dto.auth.RegisterResponse;
 import com.kinloop.backend.entity.EmailVerificationToken;
+import com.kinloop.backend.entity.ParentProfile;
 import com.kinloop.backend.entity.User;
 import com.kinloop.backend.entity.enums.UserRole;
 import com.kinloop.backend.exception.AccountNotActiveException;
@@ -13,6 +14,7 @@ import com.kinloop.backend.exception.EmailNotVerifiedException;
 import com.kinloop.backend.exception.InvalidCredentialsException;
 import com.kinloop.backend.exception.InvalidTokenException;
 import com.kinloop.backend.repository.EmailVerificationTokenRepository;
+import com.kinloop.backend.repository.ParentProfileRepository;
 import com.kinloop.backend.repository.UserRepository;
 import com.kinloop.backend.security.JwtService;
 import com.kinloop.backend.service.AuthService;
@@ -39,19 +41,21 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final EmailService emailService;
+    private final ParentProfileRepository parentProfileRepository;
 
     public AuthServiceImpl(
             UserRepository userRepository,
             EmailVerificationTokenRepository emailVerificationTokenRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            EmailService emailService
+            EmailService emailService, ParentProfileRepository parentProfileRepository
     ) {
         this.userRepository = userRepository;
         this.emailVerificationTokenRepository = emailVerificationTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.emailService = emailService;
+        this.parentProfileRepository = parentProfileRepository;
     }
 
     @Override
@@ -71,6 +75,10 @@ public class AuthServiceImpl implements AuthService {
         user.setEmailVerified(false);
         user.setActive(true);
         User savedUser = userRepository.save(user);
+
+        ParentProfile parentProfile = new ParentProfile();
+        parentProfile.setUserId(user.getId());
+        parentProfileRepository.save(parentProfile);
 
         String token = UUID.randomUUID().toString();
         EmailVerificationToken verificationToken = new EmailVerificationToken();

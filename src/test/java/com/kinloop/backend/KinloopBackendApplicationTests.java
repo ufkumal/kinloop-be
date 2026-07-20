@@ -1,7 +1,11 @@
 package com.kinloop.backend;
 
+import com.kinloop.backend.repository.ChildRepository;
 import com.kinloop.backend.repository.EmailVerificationTokenRepository;
+import com.kinloop.backend.repository.ParentProfileRepository;
 import com.kinloop.backend.repository.UserRepository;
+import com.kinloop.backend.repository.QuestionRepository;
+import com.kinloop.backend.repository.QuestionnaireSessionRepository;
 import java.lang.reflect.Proxy;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -46,6 +50,26 @@ class KinloopBackendApplicationTests {
         @Bean
         EmailVerificationTokenRepository emailVerificationTokenRepository() {
             return repositoryProxy(EmailVerificationTokenRepository.class);
+        }
+
+        @Bean
+        ChildRepository childRepository() {
+            return repositoryProxy(ChildRepository.class);
+        }
+
+        @Bean
+        ParentProfileRepository parentProfileRepository() {
+            return repositoryProxy(ParentProfileRepository.class);
+        }
+
+        @Bean
+        QuestionRepository questionRepository() {
+            return repositoryProxy(QuestionRepository.class);
+        }
+
+        @Bean
+        QuestionnaireSessionRepository questionnaireSessionRepository() {
+            return repositoryProxy(QuestionnaireSessionRepository.class);
         }
 
         private static <T> T repositoryProxy(Class<T> repositoryType) {
