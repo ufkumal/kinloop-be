@@ -7,6 +7,7 @@ import com.kinloop.backend.dto.child.CreateChildRequest;
 import com.kinloop.backend.dto.child.CreateChildResponse;
 import com.kinloop.backend.dto.child.SessionSummaryResponse;
 import com.kinloop.backend.exception.UnsupportedChildAgeException;
+import com.kinloop.backend.exception.ChildNotFoundException;
 import com.kinloop.backend.entity.QuestionnaireSession;
 import com.kinloop.backend.entity.enums.AgeBand;
 
@@ -53,6 +54,12 @@ public class ChildService {
                 AgeBand.resolve(ageMonths),
                 sessionSummary
         );
+    }
+
+    @Transactional(readOnly = true)
+    public Child getOwnedChild(Long childId, Long parentProfileId) {
+        return childRepository.findByIdAndParentIdAndDeletedAtIsNull(childId, parentProfileId)
+                .orElseThrow(() -> new ChildNotFoundException(childId));
     }
 
     /**

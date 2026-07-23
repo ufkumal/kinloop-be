@@ -10,6 +10,10 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -30,6 +34,9 @@ public class Question {
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String body;
+
+    @Column(name = "helper_text", columnDefinition = "TEXT")
+    private String helperText;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "question_type", nullable = false, length = 30)
@@ -53,4 +60,8 @@ public class Question {
 
     @Column(name = "is_active", nullable = false)
     private boolean active;
+
+    @OneToMany(mappedBy = "question")
+    @OrderBy("displayOrder ASC")
+    private List<QuestionOption> options = new ArrayList<>();
 }

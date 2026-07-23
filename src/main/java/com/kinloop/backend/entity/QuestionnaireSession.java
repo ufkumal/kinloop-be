@@ -38,7 +38,7 @@ public class QuestionnaireSession {
 
     @JdbcTypeCode(SqlTypes.SMALLINT)
     @Column(name = "age_months_at_start", nullable = false)
-    private int ageMonthsAtStart;
+    private Integer ageMonthsAtStart;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "trigger_reason", nullable = false, length = 16)
@@ -69,5 +69,17 @@ public class QuestionnaireSession {
         session.setStatus(SessionStatus.IN_PROGRESS);
         session.setStartedAt(OffsetDateTime.now());
         return session;
+    }
+
+    public boolean isOpen() { return status == SessionStatus.IN_PROGRESS; }
+
+    public void markCompleted() {
+        status = SessionStatus.COMPLETED;
+        completedAt = OffsetDateTime.now();
+    }
+
+    public void markAbandoned() {
+        status = SessionStatus.ABANDONED;
+        completedAt = null;
     }
 }
