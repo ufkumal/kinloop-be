@@ -15,7 +15,7 @@ public class QuestionnaireMapper {
                 .collect(Collectors.toMap(a -> a.getQuestion().getId(), Function.identity()));
         List<QuestionnaireQuestionResponse> responses = questions.stream().map(q -> {
             ChildAnswer answer = byQuestion.get(q.getId());
-            return new QuestionnaireQuestionResponse(q.getCode(), q.getBody(), q.getHelperText(), q.getQuestionType(),
+            return new QuestionnaireQuestionResponse(q.getCode(), q.getBody(), q.getQuestionType(),
                     q.isRequired(), q.getDisplayOrder(), q.getOptions().stream()
                     .map(o -> new QuestionOptionResponse(o.getCode(), o.getLabel(), o.getDisplayOrder())).toList(),
                     answer == null || answer.getOption() == null ? null : answer.getOption().getCode());
