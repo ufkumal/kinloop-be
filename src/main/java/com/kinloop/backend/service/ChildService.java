@@ -43,7 +43,7 @@ public class ChildService {
 
         Child savedChild = childRepository.save(child);
         QuestionnaireSession session = questionnaireSessionService.openInitialSession(savedChild.getId(), ageMonths);
-        SessionSummaryResponse sessionSummary = questionnaireSessionService.summarise(session, ageMonths, 0);
+        SessionSummaryResponse sessionSummary = questionnaireSessionService.summarise(session, 0);
 
         return new CreateChildResponse(
                 savedChild.getId(),

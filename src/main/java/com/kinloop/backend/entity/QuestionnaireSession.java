@@ -70,9 +70,7 @@ public class QuestionnaireSession {
         session.setStartedAt(OffsetDateTime.now());
         return session;
     }
-
-    public boolean isOpen() { return status == SessionStatus.IN_PROGRESS; }
-
+    
     public void markCompleted() {
         status = SessionStatus.COMPLETED;
         completedAt = OffsetDateTime.now();

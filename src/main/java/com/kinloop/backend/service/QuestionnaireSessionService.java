@@ -29,7 +29,7 @@ public class QuestionnaireSessionService {
     }
 
     @Transactional(readOnly = true)
-    public com.kinloop.backend.dto.child.SessionSummaryResponse summarise(QuestionnaireSession session, int ageMonths, int answeredCount) {
+    public com.kinloop.backend.dto.child.SessionSummaryResponse summarise(QuestionnaireSession session, int answeredCount) {
         List<Question> questions = questions(session);
         return new com.kinloop.backend.dto.child.SessionSummaryResponse(session.getId(), session.getStatus(),
                 session.getTriggerReason(), questions.size(), answeredCount,

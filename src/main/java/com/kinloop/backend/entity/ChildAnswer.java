@@ -24,17 +24,11 @@ public class ChildAnswer {
     public static ChildAnswer ofOption(QuestionnaireSession session, Question question, QuestionOption option) {
         ChildAnswer answer = base(session, question); answer.option = option; return answer;
     }
-    public static ChildAnswer ofDate(QuestionnaireSession session, Question question, LocalDate date) {
-        ChildAnswer answer = base(session, question); answer.dateValue = date; return answer;
-    }
     private static ChildAnswer base(QuestionnaireSession session, Question question) {
         ChildAnswer answer = new ChildAnswer(); answer.session = session; answer.childId = session.getChildId();
         answer.question = question; answer.answeredAt = OffsetDateTime.now(); return answer;
     }
     public void replaceWithOption(QuestionOption option) {
         this.option = option; numericValue = null; textValue = null; dateValue = null; answeredAt = OffsetDateTime.now();
-    }
-    public void replaceWithDate(LocalDate date) {
-        option = null; numericValue = null; textValue = null; dateValue = date; answeredAt = OffsetDateTime.now();
     }
 }
