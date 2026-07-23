@@ -35,9 +35,6 @@ public class Question {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String body;
 
-    @Column(name = "helper_text", columnDefinition = "TEXT")
-    private String helperText;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "question_type", nullable = false, length = 30)
     private QuestionType questionType;
