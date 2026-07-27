@@ -1,0 +1,385 @@
+openapi: 3.0.3
+info:
+  title: Kinloop API
+  version: 1.0.0
+  description: OpenAPI specification for Kinloop backend (generated from controllers and DTOs)
+servers:
+  - url: https://kinloop-be.onrender.com
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    UserRole:
+      type: string
+      enum: [PARENT, WORKSHOP, ADMIN]
+    QuestionType:
+      type: string
+      enum: [SINGLE_CHOICE, MULTI_CHOICE, SCALE, FREE_TEXT, DATE]
+    SessionStatus:
+      type: string
+      enum: [IN_PROGRESS, COMPLETED, ABANDONED]
+    AgeBand:
+      type: string
+      enum: [BAND_0_12, BAND_12_24, BAND_24_48, BAND_48_72]
+    TriggerReason:
+      type: string
+      enum: [INITIAL, AGE_BAND, MANUAL]
+
+    RegisterRequest:
+      type: object
+      required: [email, password, role]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        role:
+          $ref: '#/components/schemas/UserRole'
+
+    RegisterResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        deviceLabel:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        role:
+          $ref: '#/components/schemas/UserRole'
+        userId:
+          type: integer
+          format: int64
+        emailVerified:
+          type: boolean
+
+    CreateChildRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+          maxLength: 255
+        birthDate:
+          type: string
+          format: date
+      required: [birthDate]
+
+    SessionSummaryResponse:
+      type: object
+      properties:
+        sessionId:
+          type: integer
+          format: int64
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        triggerReason:
+          $ref: '#/components/schemas/TriggerReason'
+        totalQuestions:
+          type: integer
+        answeredCount:
+          type: integer
+        nextQuestionCode:
+          type: string
+
+    CreateChildResponse:
+      type: object
+      properties:
+        childId:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        displayName:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        ageMonths:
+          type: integer
+        ageBand:
+          $ref: '#/components/schemas/AgeBand'
+        session:
+          $ref: '#/components/schemas/SessionSummaryResponse'
+
+    IdentityQuestionResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        displayOrder:
+          type: integer
+        body:
+          type: string
+        type:
+          $ref: '#/components/schemas/QuestionType'
+        required:
+          type: boolean
+
+    IdentityQuestionsResponse:
+      type: object
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/IdentityQuestionResponse'
+
+    QuestionOptionResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        label:
+          type: string
+        displayOrder:
+          type: integer
+
+    QuestionnaireQuestionResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        body:
+          type: string
+        type:
+          $ref: '#/components/schemas/QuestionType'
+        required:
+          type: boolean
+        displayOrder:
+          type: integer
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionOptionResponse'
+        answeredOptionCode:
+          type: string
+          nullable: true
+
+    CurrentQuestionnaireResponse:
+      type: object
+      properties:
+        sessionId:
+          type: integer
+          format: int64
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        triggerReason:
+          $ref: '#/components/schemas/TriggerReason'
+        ageBand:
+          $ref: '#/components/schemas/AgeBand'
+        ageMonths:
+          type: integer
+        totalQuestions:
+          type: integer
+        answeredCount:
+          type: integer
+        nextQuestionCode:
+          type: string
+          nullable: true
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionnaireQuestionResponse'
+
+    SubmitAnswerRequest:
+      type: object
+      required: [optionCode]
+      properties:
+        optionCode:
+          type: string
+
+    QuestionnaireCompleteResponse:
+      type: object
+      properties:
+        sessionId:
+          type: integer
+          format: int64
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        snapshotId:
+          type: integer
+          format: int64
+        ageBand:
+          $ref: '#/components/schemas/AgeBand'
+        ageMonths:
+          type: integer
+
+paths:
+  /api/auth/register:
+    post:
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+
+  /api/auth/verify:
+    get:
+      summary: Verify email with token
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /api/auth/login:
+    post:
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /api/children:
+    post:
+      summary: Create a child for current parent
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChildRequest'
+      responses:
+        '201':
+          description: Child created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateChildResponse'
+
+  /api/onboarding/identity-questions:
+    get:
+      summary: Get identity/onboarding questions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Identity questions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityQuestionsResponse'
+
+  /api/children/{childId}/questionnaire/current:
+    get:
+      summary: Get current questionnaire for a child
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: childId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Current questionnaire
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentQuestionnaireResponse'
+
+  /api/children/{childId}/questionnaire/answers/{questionCode}:
+    put:
+      summary: Submit answer for a question
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: childId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: questionCode
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitAnswerRequest'
+      responses:
+        '200':
+          description: Updated questionnaire
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentQuestionnaireResponse'
+
+  /api/children/{childId}/questionnaire/complete:
+    post:
+      summary: Complete the questionnaire for a child
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: childId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Questionnaire completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionnaireCompleteResponse'
+
+security:
+  - bearerAuth: []
