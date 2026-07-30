@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service @RequiredArgsConstructor
 public class QuestionnaireSessionService {
     private final QuestionnaireSessionRepository sessionRepository;
+    private final ChildRepository childRepository;
     private final QuestionRepository questionRepository;
     private final QuestionOptionRepository optionRepository;
     private final ChildAnswerRepository answerRepository;
@@ -93,6 +94,10 @@ public class QuestionnaireSessionService {
         if (!missing.isEmpty()) throw new IncompleteQuestionnaireException(missing);
         session.markCompleted(); sessionRepository.saveAndFlush(session);
         ChildProfileSnapshot snapshot = snapshotService.rebuild(session);
+        if (child.getOnboardingCompletedAt() == null) {
+            child.setOnboardingCompletedAt(session.getCompletedAt());
+            childRepository.save(child);
+        }
         return mapper.toComplete(session, snapshot);
     }
 
