@@ -92,8 +92,8 @@ public class AuthServiceImpl implements AuthService {
         verificationToken.setUsedAt(null);
         emailVerificationTokenRepository.save(verificationToken);
 
-        emailService.sendVerificationEmail(savedUser.getEmail(), token);
-        return new RegisterResponse("Registration successful. Please verify your email.");
+        String emailLink =  emailService.sendVerificationEmail(savedUser.getEmail(), token);
+        return new RegisterResponse("Registration successful. Please verify your email. Verification link sent to: " + savedUser.getEmail() + ". Link: " + emailLink);
     }
 
     private void createProfile(User user) {
