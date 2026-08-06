@@ -9,10 +9,11 @@ import org.springframework.stereotype.Service;
 public class ConsoleEmailService implements EmailService {
 
     private static final Logger log = LoggerFactory.getLogger(ConsoleEmailService.class);
-    private static final String VERIFY_URL = "https://kinloop-be.onrender.com/verify?token=%s";
+    private static final String VERIFY_URL = "https://kinloop-be.onrender.com/api/auth/verify?token=%s";
 
     @Override
-    public void sendVerificationEmail(String toEmail, String token) {
+    public String sendVerificationEmail(String toEmail, String token) {
         log.info("Verification link for {}: {}", toEmail, VERIFY_URL.formatted(token));
+        return VERIFY_URL.formatted(token);
     }
 }
