@@ -35,6 +35,15 @@ public class Question {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String body;
 
+    @Column(name = "helper_text", columnDefinition = "TEXT")
+    private String helperText;
+
+    @Column(name = "answer_key", length = 50)
+    private String answerKey;
+
+    @Column(name = "max_length")
+    private Integer maxLength;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "question_type", nullable = false, length = 30)
     private QuestionType questionType;

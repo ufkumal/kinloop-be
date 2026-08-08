@@ -24,6 +24,9 @@ components:
     AgeBand:
       type: string
       enum: [BAND_0_12, BAND_12_24, BAND_24_48, BAND_48_72]
+    Gender:
+      type: string
+      enum: [FEMALE, MALE, OTHER, UNDISCLOSED]
     TriggerReason:
       type: string
       enum: [INITIAL, AGE_BAND, MANUAL]
@@ -82,6 +85,10 @@ components:
         birthDate:
           type: string
           format: date
+        gender:
+          $ref: '#/components/schemas/Gender'
+        dailyTimeBudgetOptionCode:
+          type: string
       required: [birthDate]
 
     SessionSummaryResponse:
@@ -109,6 +116,8 @@ components:
           format: int64
         fullName:
           type: string
+        gender:
+          $ref: '#/components/schemas/Gender'
         displayName:
           type: string
         birthDate:
@@ -130,10 +139,25 @@ components:
           type: integer
         body:
           type: string
+        helperText:
+          type: string
+          nullable: true
+        answerKey:
+          type: string
+        maxLength:
+          type: integer
+          nullable: true
         type:
           $ref: '#/components/schemas/QuestionType'
         required:
           type: boolean
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionOptionResponse'
+        answeredOptionCode:
+          type: string
+          nullable: true
 
     IdentityQuestionsResponse:
       type: object
