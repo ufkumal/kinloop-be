@@ -12,4 +12,6 @@ public interface ChildRepository extends JpaRepository<Child, Long> {
     long countByParentIdAndFullNameIsNullAndDeletedAtIsNull(Long parentId);
 
     Optional<Child> findByIdAndParentIdAndDeletedAtIsNull(Long id, Long parentId);
+
+    boolean existsByParentIdAndOnboardingCompletedAtIsNotNullAndDeletedAtIsNull(Long parentId);
 }
