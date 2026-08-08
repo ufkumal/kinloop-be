@@ -25,6 +25,9 @@ public class ParentProfile {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "daily_time_budget_minutes")
+    private Short dailyTimeBudgetMinutes;
+
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 }

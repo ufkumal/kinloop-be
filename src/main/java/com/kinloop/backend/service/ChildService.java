@@ -3,6 +3,9 @@ package com.kinloop.backend.service;
 import com.kinloop.backend.entity.Child;
 import com.kinloop.backend.entity.enums.PreferenceMode;
 import com.kinloop.backend.repository.ChildRepository;
+import com.kinloop.backend.repository.ParentProfileRepository;
+import com.kinloop.backend.entity.ParentProfile;
+import com.kinloop.backend.exception.MissingDailyTimeBudgetException;
 import com.kinloop.backend.dto.child.CreateChildRequest;
 import com.kinloop.backend.dto.child.CreateChildResponse;
 import com.kinloop.backend.dto.child.SessionSummaryResponse;
@@ -25,7 +28,9 @@ public class ChildService {
     private static final String CHILD_DISPLAY_NAME = "Çocuğunuz";
 
     private final ChildRepository childRepository;
+    private final ParentProfileRepository parentProfileRepository;
     private final QuestionnaireSessionService questionnaireSessionService;
+    private final OnboardingService onboardingService;
 
     @Transactional
     public CreateChildResponse createChild(Long parentProfileId, CreateChildRequest request) {
@@ -35,10 +40,27 @@ public class ChildService {
             throw new UnsupportedChildAgeException(ageMonths);
         }
 
+        ParentProfile parentProfile = parentProfileRepository.findById(parentProfileId)
+                .filter(profile -> profile.getDeletedAt() == null)
+                .orElseThrow(() -> new IllegalStateException("Parent profile not found"));
+        if (parentProfile.getDailyTimeBudgetMinutes() == null) {
+            if (request.dailyTimeBudgetOptionCode() == null || request.dailyTimeBudgetOptionCode().isBlank()) {
+                throw new MissingDailyTimeBudgetException();
+            }
+            parentProfile.setDailyTimeBudgetMinutes(
+                    onboardingService.resolveDailyTimeBudget(request.dailyTimeBudgetOptionCode()));
+            parentProfileRepository.save(parentProfile);
+        } else if (request.dailyTimeBudgetOptionCode() != null && !request.dailyTimeBudgetOptionCode().isBlank()) {
+            parentProfile.setDailyTimeBudgetMinutes(
+                    onboardingService.resolveDailyTimeBudget(request.dailyTimeBudgetOptionCode()));
+            parentProfileRepository.save(parentProfile);
+        }
+
         Child child = new Child();
         child.setParentId(parentProfileId);
         child.setFullName(fullName);
         child.setBirthDate(request.birthDate());
+        child.setGender(request.gender());
         child.setPreferenceMode(PreferenceMode.BALANCED);
 
         Child savedChild = childRepository.save(child);
@@ -48,6 +70,7 @@ public class ChildService {
         return new CreateChildResponse(
                 savedChild.getId(),
                 savedChild.getFullName(),
+                savedChild.getGender(),
                 displayName(savedChild, ageMonths),
                 savedChild.getBirthDate(),
                 ageMonths,

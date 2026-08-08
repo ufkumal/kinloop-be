@@ -23,6 +23,7 @@ public class QuestionnaireSessionService {
     private final ProfileSnapshotService snapshotService;
     private final QuestionnaireMapper mapper;
     private final QuestionnaireSessionWriter sessionWriter;
+    private final ParentProfileRepository parentProfileRepository;
 
     @Transactional
     public QuestionnaireSession openInitialSession(Long childId, int ageMonths) {
@@ -86,6 +87,12 @@ public class QuestionnaireSessionService {
     public QuestionnaireCompleteResponse complete(Child child) {
         QuestionnaireSession session = open(child.getId());
         assertCurrentBand(child, session);
+        ParentProfile parentProfile = parentProfileRepository.findById(child.getParentId())
+                .filter(profile -> profile.getDeletedAt() == null)
+                .orElseThrow(() -> new IllegalStateException("Parent profile not found"));
+        if (parentProfile.getDailyTimeBudgetMinutes() == null) {
+            throw new MissingDailyTimeBudgetException();
+        }
         List<Question> questions = questions(session);
         Set<Long> answered = new HashSet<>();
         answerRepository.findBySessionId(session.getId()).forEach(a -> answered.add(a.getQuestion().getId()));
