@@ -43,7 +43,7 @@ class ChildServiceTest {
 
     @Test
     void firstChildStoresRequiredDailyTimeBudgetOnParent() {
-        ParentProfile parent = parent(1L, null);
+        ParentProfile parent = parent(null);
         when(parentProfileRepository.findById(1L)).thenReturn(Optional.of(parent));
         when(onboardingService.resolveDailyTimeBudget("B")).thenReturn((short) 20);
         when(childRepository.save(any(Child.class))).thenAnswer(invocation -> {
@@ -64,7 +64,7 @@ class ChildServiceTest {
 
     @Test
     void childCreationFailsBeforeWritingWhenParentHasNoBudgetAnswer() {
-        ParentProfile parent = parent(1L, null);
+        ParentProfile parent = parent(null);
         when(parentProfileRepository.findById(1L)).thenReturn(Optional.of(parent));
 
         assertThrows(MissingDailyTimeBudgetException.class,
@@ -75,7 +75,7 @@ class ChildServiceTest {
 
     @Test
     void subsequentChildKeepsExistingParentBudget() {
-        ParentProfile parent = parent(1L, (short) 10);
+        ParentProfile parent = parent((short) 10);
         when(parentProfileRepository.findById(1L)).thenReturn(Optional.of(parent));
         when(childRepository.save(any(Child.class))).thenAnswer(invocation -> {
             Child child = invocation.getArgument(0);
@@ -93,9 +93,9 @@ class ChildServiceTest {
         verify(parentProfileRepository, never()).save(any());
     }
 
-    private ParentProfile parent(Long id, Short budget) {
+    private ParentProfile parent(Short budget) {
         ParentProfile parent = new ParentProfile();
-        parent.setId(id);
+        parent.setId(1L);
         parent.setDailyTimeBudgetMinutes(budget);
         return parent;
     }
