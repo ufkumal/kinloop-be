@@ -87,6 +87,9 @@ public class OnboardingService {
                 question.getCode(),
                 question.getDisplayOrder(),
                 question.getBody(),
+                question.getHelperText(),
+                question.getAnswerKey(),
+                question.getMaxLength(),
                 question.getQuestionType(),
                 question.isRequired(),
                 question.getOptions().stream()
