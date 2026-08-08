@@ -3,6 +3,7 @@ package com.kinloop.backend.repository;
 import com.kinloop.backend.entity.Question;
 import com.kinloop.backend.entity.enums.QuestionScope;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,6 +11,8 @@ import org.springframework.data.repository.query.Param;
 public interface QuestionRepository extends JpaRepository<Question, Long> {
 
     List<Question> findByScopeAndActiveTrueOrderByDisplayOrderAsc(QuestionScope scope);
+
+    Optional<Question> findByCodeAndScopeAndActiveTrue(String code, QuestionScope scope);
 
     /**
      * Uses an explicit upper-bound branch so age 12 matches only Q2 (12-72) and not Q2b (0-12),

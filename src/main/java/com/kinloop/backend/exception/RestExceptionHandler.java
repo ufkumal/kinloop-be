@@ -85,6 +85,11 @@ public class RestExceptionHandler {
         return ResponseEntity.status(status).body(new ApiErrorResponse(ex.getMessage(), status.value(), details));
     }
 
+    @ExceptionHandler(MissingDailyTimeBudgetException.class)
+    public ResponseEntity<ApiErrorResponse> handleMissingDailyTimeBudget(MissingDailyTimeBudgetException ex) {
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ApiErrorResponse>  handleIllegalState(IllegalStateException ex) {
         return  error(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
