@@ -28,9 +28,6 @@ public class ProfileSnapshotService {
                 QuestionOption option = answer.getOption();
                 if (option == null) continue;
                 if (option.getDunnQuadrant() != null) next.setDunnQuadrant(option.getDunnQuadrant());
-                if (option.getNoiseSensitivity() != null) next.setNoiseSensitivity(option.getNoiseSensitivity());
-                if (option.getVisualSensitivity() != null) next.setVisualSensitivity(option.getVisualSensitivity());
-                if (option.getMobilityPreference() != null) next.setMobilityPreference(option.getMobilityPreference());
                 if (option.getSeparationAnxiety() != null) next.setSeparationAnxiety(option.getSeparationAnxiety());
                 if (option.getSocialOrientation() != null) next.setSocialOrientation(option.getSocialOrientation());
                 if (option.getFocusBand() != null) next.setFocusBand(option.getFocusBand());
