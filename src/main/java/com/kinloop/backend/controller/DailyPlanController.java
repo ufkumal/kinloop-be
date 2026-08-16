@@ -1,14 +1,18 @@
 package com.kinloop.backend.controller;
 
 import com.kinloop.backend.dto.matching.DailyPlanResponse;
+import com.kinloop.backend.dto.matching.SelectDailyActivityRequest;
 import com.kinloop.backend.entity.Child;
 import com.kinloop.backend.service.ActivityMatchingService;
 import com.kinloop.backend.service.ChildService;
 import com.kinloop.backend.service.CurrentParentProfileService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -25,5 +29,14 @@ public class DailyPlanController {
         Long parentId = currentParentProfileService.currentParentProfileId(authentication);
         Child child = childService.getOwnedChild(childId, parentId);
         return matchingService.today(child);
+    }
+
+    @PostMapping("/today/selection")
+    public DailyPlanResponse selectActivity(@PathVariable Long childId,
+                                            @Valid @RequestBody SelectDailyActivityRequest request,
+                                            Authentication authentication) {
+        Long parentId = currentParentProfileService.currentParentProfileId(authentication);
+        Child child = childService.getOwnedChild(childId, parentId);
+        return matchingService.selectActivity(child, request.activityId());
     }
 }

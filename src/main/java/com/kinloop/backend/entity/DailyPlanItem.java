@@ -4,6 +4,7 @@ import com.kinloop.backend.entity.enums.PlanSlotType;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -29,11 +30,25 @@ public class DailyPlanItem {
     private BigDecimal score;
     @Column(nullable = false)
     private String source = "RULE";
+    @Column(name = "selected_at")
+    private OffsetDateTime selectedAt;
 
     DailyPlanItem(DailyPlan plan, Activity activity, PlanSlotType slot, BigDecimal score) {
         this.dailyPlan = plan;
         this.activity = activity;
         this.slotType = slot;
         this.score = score;
+    }
+
+    public boolean isSelected() {
+        return selectedAt != null;
+    }
+
+    void select() {
+        selectedAt = OffsetDateTime.now();
+    }
+
+    void unselect() {
+        selectedAt = null;
     }
 }

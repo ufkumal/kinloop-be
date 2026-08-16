@@ -1,6 +1,7 @@
 package com.kinloop.backend.entity;
 
 import com.kinloop.backend.entity.enums.PlanSlotType;
+import com.kinloop.backend.exception.ActivityNotInDailyPlanException;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
@@ -32,5 +33,17 @@ public class DailyPlan {
 
     public void add(Activity activity, PlanSlotType slot, java.math.BigDecimal score) {
         items.add(new DailyPlanItem(this, activity, slot, score));
+    }
+
+    public void select(Long activityId) {
+        DailyPlanItem selected = items.stream()
+                .filter(item -> item.getActivity().getId().equals(activityId))
+                .findFirst()
+                .orElseThrow(() -> new ActivityNotInDailyPlanException(activityId));
+
+        items.stream()
+                .filter(item -> item != selected)
+                .forEach(DailyPlanItem::unselect);
+        selected.select();
     }
 }

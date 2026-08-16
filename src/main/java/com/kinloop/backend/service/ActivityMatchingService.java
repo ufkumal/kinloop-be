@@ -3,6 +3,7 @@ package com.kinloop.backend.service;
 import com.kinloop.backend.dto.matching.*;
 import com.kinloop.backend.entity.*;
 import com.kinloop.backend.entity.enums.*;
+import com.kinloop.backend.exception.DailyPlanNotFoundException;
 import com.kinloop.backend.exception.MissingDailyTimeBudgetException;
 import com.kinloop.backend.repository.*;
 import com.kinloop.backend.service.matching.*;
@@ -87,6 +88,14 @@ public class ActivityMatchingService {
         return response(planRepository.save(plan), budget);
     }
 
+    @Transactional
+    public DailyPlanResponse selectActivity(Child child, Long activityId) {
+        DailyPlan plan = planRepository.findByChildIdAndPlanDate(child.getId(), LocalDate.now())
+                .orElseThrow(() -> new DailyPlanNotFoundException(child.getId()));
+        plan.select(activityId);
+        return response(planRepository.save(plan), budget(child));
+    }
+
     private short budget(Child child) {
         return parentRepository.findById(child.getParentId())
                 .filter(parent -> parent.getDeletedAt() == null)
@@ -107,6 +116,6 @@ public class ActivityMatchingService {
         Activity a = item.getActivity();
         ActivityInstruction i = a.getInstruction();
         return new DailyActivityResponse(a.getId(), a.getTitle(), a.getDescription(), a.getDurationMinutes(), item.getSlotType().name(), item.getScore(),
-                i == null ? null : i.getIntro(), i == null ? null : i.getPurpose(), i == null ? null : i.getWhyItMatters(), i == null ? null : i.getEasierVariation(), i == null ? null : i.getHarderVariation(), i == null ? null : i.getObservationTip());
+                i == null ? null : i.getIntro(), i == null ? null : i.getPurpose(), i == null ? null : i.getWhyItMatters(), i == null ? null : i.getEasierVariation(), i == null ? null : i.getHarderVariation(), i == null ? null : i.getObservationTip(), item.isSelected());
     }
 }
