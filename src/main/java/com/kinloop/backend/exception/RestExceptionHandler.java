@@ -90,6 +90,16 @@ public class RestExceptionHandler {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
     }
 
+    @ExceptionHandler(DailyPlanNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleDailyPlanNotFound(DailyPlanNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(ActivityNotInDailyPlanException.class)
+    public ResponseEntity<ApiErrorResponse> handleActivityNotInDailyPlan(ActivityNotInDailyPlanException ex) {
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ApiErrorResponse>  handleIllegalState(IllegalStateException ex) {
         return  error(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());

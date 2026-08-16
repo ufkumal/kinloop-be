@@ -14,6 +14,7 @@ public record DailyActivityResponse(
         String whyItMatters,
         String easierVariation,
         String harderVariation,
-        String observationTip
+        String observationTip,
+        boolean selected
 ) {
 }
