@@ -1,12 +1,29 @@
 package com.kinloop.backend.dto.home;
 
-public record HomeStatusResponse(String state) {
+import com.fasterxml.jackson.annotation.JsonInclude;
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public record HomeStatusResponse(
+        String state,
+        Long childId,
+        String childName,
+        HomeActivityResponse latestActivity
+) {
+
+    public HomeStatusResponse(String state) {
+        this(state, null, null, null);
+    }
 
     public static HomeStatusResponse newUser() {
-        return new HomeStatusResponse("new-user");
+        return new HomeStatusResponse("new-user", null, null, null);
     }
 
     public static HomeStatusResponse returningUser() {
-        return new HomeStatusResponse("returning-user");
+        return new HomeStatusResponse("returning-user", null, null, null);
+    }
+
+    public static HomeStatusResponse returningUser(Long childId, String childName,
+                                                   HomeActivityResponse latestActivity) {
+        return new HomeStatusResponse("returning-user", childId, childName, latestActivity);
     }
 }
