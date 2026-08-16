@@ -9,6 +9,16 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class DailyPortfolioBuilder {
+    private final Random random;
+
+    public DailyPortfolioBuilder() {
+        this(new Random());
+    }
+
+    DailyPortfolioBuilder(Random random) {
+        this.random = random;
+    }
+
     public record Selection(PlanSlotType slot, ScoredActivity activity) {
     }
 
@@ -32,7 +42,29 @@ public class DailyPortfolioBuilder {
     }
 
     private List<Selection> best(List<List<Selection>> values, int budget) {
-        return values.stream().filter(v -> v.stream().mapToInt(x -> x.activity().activity().getDurationMinutes()).sum() <= budget).max(Comparator.comparing(v -> v.stream().map(x -> x.activity().rawScore()).reduce(BigDecimal.ZERO, BigDecimal::add))).orElse(List.of());
+        List<List<Selection>> fitting = values.stream()
+                .filter(variant -> variant.stream()
+                        .mapToInt(selection -> selection.activity().activity().getDurationMinutes())
+                        .sum() <= budget)
+                .toList();
+        if (fitting.isEmpty()) return List.of();
+
+        BigDecimal maximum = fitting.stream()
+                .map(this::totalScore)
+                .max(BigDecimal::compareTo)
+                .orElseThrow();
+        List<List<Selection>> tied = fitting.stream()
+                .filter(variant -> totalScore(variant).compareTo(maximum) == 0)
+                .toList();
+
+        // v5 doc §7.1 Eşitlik durumu: equally scored alternatives are resolved by lottery.
+        return tied.get(random.nextInt(tied.size()));
+    }
+
+    private BigDecimal totalScore(List<Selection> variant) {
+        return variant.stream()
+                .map(selection -> selection.activity().rawScore())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private boolean distinct(ScoredActivity a, ScoredActivity b, ScoredActivity c) {

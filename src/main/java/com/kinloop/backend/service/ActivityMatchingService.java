@@ -38,6 +38,7 @@ public class ActivityMatchingService {
     private final ActivityEligibilityPolicy eligibilityPolicy;
     private final ActivityScorer scorer;
     private final DailyPortfolioBuilder portfolioBuilder;
+    private final StrengthenCandidateSelector strengthenCandidateSelector;
 
     @Transactional
     public DailyPlanResponse today(Child requestedChild) {
@@ -65,13 +66,13 @@ public class ActivityMatchingService {
                 .sorted(Comparator.comparing(ScoredActivity::rawScore).reversed().thenComparing(a -> a.activity().getId())).toList();
         if (scored.isEmpty()) throw new IllegalStateException("No eligible activities for this child today");
 
-        IntelligenceType strongest = scores.values().stream().max(Comparator.comparing(ChildIntelligenceScore::getScore).thenComparing(x -> x.getIntelligenceType().name())).orElseThrow().getIntelligenceType();
         int leastSamples = scores.values().stream().mapToInt(ChildIntelligenceScore::getFeedbackCount).min().orElse(0);
         Set<IntelligenceType> leastKnown = scores.values().stream().filter(x -> x.getFeedbackCount() == leastSamples).map(ChildIntelligenceScore::getIntelligenceType).collect(Collectors.toSet());
         int limit = p.get("slot_candidate_limit").intValue();
+        int exploreLimit = p.get("explore_random_top_limit").intValue();
         List<ScoredActivity> develop = top(scored.stream().filter(x -> x.activity().getTargetDomain() == period).toList(), limit);
-        List<ScoredActivity> strengthen = top(scored.stream().filter(x -> x.activity().getTargetIntelligence() == strongest).toList(), limit);
-        List<ScoredActivity> explore = top(scored.stream().filter(x -> leastKnown.contains(x.activity().getTargetIntelligence())).toList(), limit);
+        List<ScoredActivity> strengthen = strengthenCandidateSelector.select(scored, scores, limit);
+        List<ScoredActivity> explore = top(scored.stream().filter(x -> leastKnown.contains(x.activity().getTargetIntelligence())).toList(), exploreLimit);
         // TODO(v5-policy): Tue/Thu/Sat second-strengthening behavior awaits a distinct persistence slot (TBA item 7).
         List<DailyPortfolioBuilder.Selection> selection = portfolioBuilder.build(develop, strengthen, explore, budget);
         if (selection.isEmpty()) throw new IllegalStateException("No development activity fits the daily budget");
