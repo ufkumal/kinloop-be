@@ -32,6 +32,8 @@ public class DailyPlanItem {
     private String source = "RULE";
     @Column(name = "selected_at")
     private OffsetDateTime selectedAt;
+    @Column(name = "completed_at")
+    private OffsetDateTime completedAt;
 
     DailyPlanItem(DailyPlan plan, Activity activity, PlanSlotType slot, BigDecimal score) {
         this.dailyPlan = plan;
@@ -42,6 +44,10 @@ public class DailyPlanItem {
 
     public boolean isSelected() {
         return selectedAt != null;
+    }
+
+    public boolean isCompleted() {
+        return completedAt != null;
     }
 
     void select() {

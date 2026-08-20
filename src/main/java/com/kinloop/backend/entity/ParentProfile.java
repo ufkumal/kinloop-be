@@ -25,6 +25,18 @@ public class ParentProfile {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "full_name")
+    private String fullName;
+
+    @Column
+    private String phone;
+
+    @Column
+    private String city;
+
+    @Column
+    private String district;
+
     @Column(name = "daily_time_budget_minutes")
     private Short dailyTimeBudgetMinutes;
 
