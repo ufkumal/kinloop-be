@@ -3,6 +3,8 @@ package com.kinloop.backend.service;
 import com.kinloop.backend.dto.onboarding.IdentityQuestionResponse;
 import com.kinloop.backend.dto.onboarding.IdentityQuestionsResponse;
 import com.kinloop.backend.dto.onboarding.DailyTimeBudgetResponse;
+import com.kinloop.backend.dto.profile.DailyTimeBudgetOptionResponse;
+import com.kinloop.backend.dto.profile.DailyTimeBudgetProfileResponse;
 import com.kinloop.backend.dto.questionnaire.QuestionOptionResponse;
 import com.kinloop.backend.entity.ParentProfile;
 import com.kinloop.backend.entity.Question;
@@ -57,6 +59,25 @@ public class OnboardingService {
     }
 
     @Transactional(readOnly = true)
+    public DailyTimeBudgetProfileResponse getDailyTimeBudget(Long parentProfileId) {
+        Question question = dailyTimeBudgetQuestion();
+        ParentProfile parentProfile = parentProfile(parentProfileId);
+        List<DailyTimeBudgetOptionResponse> options = question.getOptions().stream()
+                .map(option -> new DailyTimeBudgetOptionResponse(
+                        option.getCode(),
+                        option.getLabel(),
+                        option.getDisplayOrder(),
+                        requiredTimeBudget(option)))
+                .toList();
+        return new DailyTimeBudgetProfileResponse(
+                question.getCode(),
+                question.getBody(),
+                answeredOptionCode(question, parentProfile),
+                parentProfile.getDailyTimeBudgetMinutes(),
+                options);
+    }
+
+    @Transactional(readOnly = true)
     public Short resolveDailyTimeBudget(String optionCode) {
         return requiredTimeBudget(dailyTimeBudgetOption(optionCode));
     }
@@ -68,11 +89,15 @@ public class OnboardingService {
     }
 
     private QuestionOption dailyTimeBudgetOption(String optionCode) {
-        Question question = questionRepository
-                .findByCodeAndScopeAndActiveTrue(DAILY_TIME_BUDGET_QUESTION_CODE, QuestionScope.HOUSEHOLD)
-                .orElseThrow(() -> new IllegalStateException("Daily time budget question is missing"));
+        Question question = dailyTimeBudgetQuestion();
         return questionOptionRepository.findByQuestionIdAndCode(question.getId(), optionCode)
                 .orElseThrow(() -> new InvalidOptionException(optionCode));
+    }
+
+    private Question dailyTimeBudgetQuestion() {
+        return questionRepository
+                .findByCodeAndScopeAndActiveTrue(DAILY_TIME_BUDGET_QUESTION_CODE, QuestionScope.HOUSEHOLD)
+                .orElseThrow(() -> new IllegalStateException("Daily time budget question is missing"));
     }
 
     private Short requiredTimeBudget(QuestionOption option) {
