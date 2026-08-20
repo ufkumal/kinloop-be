@@ -41,8 +41,11 @@ components:
 
     RegisterRequest:
       type: object
-      required: [email, password, role]
+      required: [name, email, password, role]
       properties:
+        name:
+          type: string
+          maxLength: 255
         email:
           type: string
           format: email

@@ -82,7 +82,7 @@ public class AuthServiceImpl implements AuthService {
         user.setActive(true);
         User savedUser = userRepository.save(user);
 
-        createProfile(savedUser);
+        createProfile(savedUser, req.name());
 
         String token = UUID.randomUUID().toString();
         EmailVerificationToken verificationToken = new EmailVerificationToken();
@@ -96,17 +96,18 @@ public class AuthServiceImpl implements AuthService {
         return new RegisterResponse("Registration successful. Please verify your email. Verification link sent to: " + savedUser.getEmail() + ". Link: " + emailLink);
     }
 
-    private void createProfile(User user) {
+    private void createProfile(User user, String name) {
         if (user.getRole() == UserRole.PARENT) {
             ParentProfile parentProfile = new ParentProfile();
             parentProfile.setUserId(user.getId());
+            parentProfile.setFullName(name);
             parentProfileRepository.save(parentProfile);
             return;
         }
 
         WorkshopProfile workshopProfile = new WorkshopProfile();
         workshopProfile.setUserId(user.getId());
-        workshopProfile.setName(user.getEmail());
+        workshopProfile.setName(name);
         workshopProfileRepository.save(workshopProfile);
     }
 

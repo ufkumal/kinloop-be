@@ -50,22 +50,23 @@ class AuthServiceImplTest {
 
     @Test
     void parentRegistrationCreatesOnlyParentProfile() {
-        authService.register(new RegisterRequest("parent@example.com", "password", UserRole.PARENT));
+        authService.register(new RegisterRequest("Parent Name", "parent@example.com", "password", UserRole.PARENT));
 
         ArgumentCaptor<ParentProfile> profile = ArgumentCaptor.forClass(ParentProfile.class);
         verify(parentProfileRepository).save(profile.capture());
         verify(workshopProfileRepository, never()).save(any());
         org.junit.jupiter.api.Assertions.assertEquals(42L, profile.getValue().getUserId());
+        org.junit.jupiter.api.Assertions.assertEquals("Parent Name", profile.getValue().getFullName());
     }
 
     @Test
     void workshopRegistrationCreatesOnlyWorkshopProfile() {
-        authService.register(new RegisterRequest("workshop@example.com", "password", UserRole.WORKSHOP));
+        authService.register(new RegisterRequest("Workshop Name", "workshop@example.com", "password", UserRole.WORKSHOP));
 
         ArgumentCaptor<WorkshopProfile> profile = ArgumentCaptor.forClass(WorkshopProfile.class);
         verify(workshopProfileRepository).save(profile.capture());
         verify(parentProfileRepository, never()).save(any());
         org.junit.jupiter.api.Assertions.assertEquals(42L, profile.getValue().getUserId());
-        org.junit.jupiter.api.Assertions.assertEquals("workshop@example.com", profile.getValue().getName());
+        org.junit.jupiter.api.Assertions.assertEquals("Workshop Name", profile.getValue().getName());
     }
 }
