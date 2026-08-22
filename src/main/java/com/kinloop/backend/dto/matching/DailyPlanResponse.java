@@ -7,8 +7,11 @@ public record DailyPlanResponse(
         Long planId,
         Long childId,
         LocalDate planDate,
-        short budgetMinutes,
+        int budgetMin,
+        int budgetMax,
+        int committedDurationMinutes,
         int totalDurationMinutes,
+        short fallbackLevel,
         List<DailyActivityResponse> activities
 ) {
 }

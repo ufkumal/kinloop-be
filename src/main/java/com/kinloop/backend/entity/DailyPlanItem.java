@@ -34,12 +34,25 @@ public class DailyPlanItem {
     private OffsetDateTime selectedAt;
     @Column(name = "completed_at")
     private OffsetDateTime completedAt;
+    @Column(name = "within_budget", nullable = false)
+    private boolean withinBudget = true;
+    @Column(name = "repeat_notice", nullable = false)
+    private boolean repeatNotice;
 
-    DailyPlanItem(DailyPlan plan, Activity activity, PlanSlotType slot, BigDecimal score) {
+    DailyPlanItem(
+            DailyPlan plan,
+            Activity activity,
+            PlanSlotType slot,
+            BigDecimal score,
+            boolean withinBudget,
+            boolean repeatNotice
+    ) {
         this.dailyPlan = plan;
         this.activity = activity;
         this.slotType = slot;
         this.score = score;
+        this.withinBudget = withinBudget;
+        this.repeatNotice = repeatNotice;
     }
 
     public boolean isSelected() {

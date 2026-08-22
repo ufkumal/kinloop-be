@@ -46,7 +46,7 @@ public class ActivityMatchingService {
         Child child = childRepository.findLockedById(requestedChild.getId()).orElseThrow();
         LocalDate today = LocalDate.now();
         Optional<DailyPlan> existing = planRepository.findByChildIdAndPlanDate(child.getId(), today);
-        if (existing.isPresent()) return response(existing.get(), budget(child));
+        if (existing.isPresent()) return response(existing.get());
 
         ChildProfileSnapshot profile = profileRepository.findByChildIdAndCurrentTrue(child.getId())
                 .orElseThrow(() -> new IllegalStateException("Child onboarding profile is missing"));
@@ -85,7 +85,7 @@ public class ActivityMatchingService {
             recommendationRepository.save(new Recommendation(child.getId(), match.activity(), match.rawScore(), rank++, match.breakdown()));
             plan.add(match.activity(), selected.slot(), match.rawScore());
         }
-        return response(planRepository.save(plan), budget);
+        return response(planRepository.save(plan));
     }
 
     @Transactional
@@ -93,7 +93,7 @@ public class ActivityMatchingService {
         DailyPlan plan = planRepository.findByChildIdAndPlanDate(child.getId(), LocalDate.now())
                 .orElseThrow(() -> new DailyPlanNotFoundException(child.getId()));
         plan.select(activityId);
-        return response(planRepository.save(plan), budget(child));
+        return response(planRepository.save(plan));
     }
 
     private short budget(Child child) {
@@ -107,15 +107,26 @@ public class ActivityMatchingService {
         return values.stream().limit(limit).toList();
     }
 
-    private DailyPlanResponse response(DailyPlan plan, short budget) {
+    private DailyPlanResponse response(DailyPlan plan) {
         List<DailyActivityResponse> items = plan.getItems().stream().sorted(Comparator.comparingInt(x -> x.getSlotType().ordinal())).map(this::response).toList();
-        return new DailyPlanResponse(plan.getId(), plan.getChildId(), plan.getPlanDate(), budget, items.stream().mapToInt(DailyActivityResponse::durationMinutes).sum(), items);
+        return new DailyPlanResponse(
+                plan.getId(),
+                plan.getChildId(),
+                plan.getPlanDate(),
+                plan.getBudgetMin(),
+                plan.getBudgetMax(),
+                plan.getCommittedDurationMinutes(),
+                plan.getTotalDurationMinutes(),
+                plan.getFallbackLevel(),
+                items
+        );
     }
 
     private DailyActivityResponse response(DailyPlanItem item) {
         Activity a = item.getActivity();
         ActivityInstruction i = a.getInstruction();
         return new DailyActivityResponse(a.getId(), a.getTitle(), a.getDescription(), a.getDurationMinutes(), item.getSlotType().name(), item.getScore(),
-                i == null ? null : i.getIntro(), i == null ? null : i.getPurpose(), i == null ? null : i.getWhyItMatters(), i == null ? null : i.getEasierVariation(), i == null ? null : i.getHarderVariation(), i == null ? null : i.getObservationTip(), item.isSelected());
+                i == null ? null : i.getIntro(), i == null ? null : i.getPurpose(), i == null ? null : i.getWhyItMatters(), i == null ? null : i.getEasierVariation(), i == null ? null : i.getHarderVariation(), i == null ? null : i.getObservationTip(),
+                item.isWithinBudget(), item.isRepeatNotice(), item.isSelected());
     }
 }

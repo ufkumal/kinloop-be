@@ -22,7 +22,7 @@ public class ChildDomainLevel {
     private DevelopmentDomain domain;
     @Column(nullable = false)
     private short level;
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 4, scale = 1)
     private BigDecimal streak = BigDecimal.ZERO;
 
     public ChildDomainLevel(Long childId, DevelopmentDomain domain, short level) {
