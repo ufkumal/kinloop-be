@@ -16,7 +16,7 @@ public class MatchingStateInitializer {
     private final ChildIntelligenceScoreRepository intelligenceRepository;
     private final ChildDomainLevelRepository domainRepository;
 
-    public void initialize(Long childId, List<GardnerPrior> priors, Map<String, BigDecimal> p) {
+    public void initialize(Long childId, int ageMonths, List<GardnerPrior> priors, Map<String, BigDecimal> p) {
         if (!intelligenceRepository.existsByChildId(childId)) {
             Map<IntelligenceType, ChildIntelligenceScore> scores = new EnumMap<>(IntelligenceType.class);
             for (IntelligenceType type : IntelligenceType.values())
@@ -26,7 +26,20 @@ public class MatchingStateInitializer {
             intelligenceRepository.saveAll(scores.values());
         }
         Set<DevelopmentDomain> existing = domainRepository.findByChildId(childId).stream().map(ChildDomainLevel::getDomain).collect(java.util.stream.Collectors.toSet());
-        List<ChildDomainLevel> missing = Arrays.stream(DevelopmentDomain.values()).filter(d -> !existing.contains(d)).map(d -> new ChildDomainLevel(childId, d, p.get("domain_initial_level").shortValue())).toList();
+        short initialLevel = initialDomainLevel(ageMonths, p);
+        List<ChildDomainLevel> missing = Arrays.stream(DevelopmentDomain.values())
+                .filter(domain -> !existing.contains(domain))
+                .map(domain -> new ChildDomainLevel(childId, domain, initialLevel))
+                .toList();
         domainRepository.saveAll(missing);
+    }
+
+    short initialDomainLevel(int ageMonths, Map<String, BigDecimal> parameters) {
+        if (ageMonths < 0 || ageMonths >= 73) {
+            throw new IllegalArgumentException("Age must be between 0 and 72 months");
+        }
+        if (ageMonths < 48) return parameters.get("domain_initial_level_under_48m").shortValueExact();
+        if (ageMonths < 60) return parameters.get("domain_initial_level_48_to_60m").shortValueExact();
+        return parameters.get("domain_initial_level_60_to_73m").shortValueExact();
     }
 }

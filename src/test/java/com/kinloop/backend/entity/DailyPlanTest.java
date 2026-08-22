@@ -1,5 +1,6 @@
 package com.kinloop.backend.entity;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,6 +13,32 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class DailyPlanTest {
+
+    @Test
+    void newPlanAndItemsUseV6BookkeepingDefaults() {
+        DailyPlan plan = new DailyPlan(10L, LocalDate.now());
+
+        plan.add(activity(1L), PlanSlotType.DEVELOP, BigDecimal.ONE);
+        plan.add(activity(2L), PlanSlotType.EXPLORE, BigDecimal.TEN, false, true);
+
+        assertEquals(25, plan.getBudgetMin());
+        assertEquals(35, plan.getBudgetMax());
+        assertEquals(0, plan.getCommittedDurationMinutes());
+        assertEquals(0, plan.getTotalDurationMinutes());
+        assertEquals(0, plan.getFallbackLevel());
+        assertTrue(plan.getItems().get(0).isWithinBudget());
+        assertFalse(plan.getItems().get(0).isRepeatNotice());
+        assertFalse(plan.getItems().get(1).isWithinBudget());
+        assertTrue(plan.getItems().get(1).isRepeatNotice());
+    }
+
+    @Test
+    void planSnapshotsTheChildBudgetRange() {
+        DailyPlan plan = new DailyPlan(10L, LocalDate.now(), (short) 35, (short) 45);
+
+        assertEquals(35, plan.getBudgetMin());
+        assertEquals(45, plan.getBudgetMax());
+    }
 
     @Test
     void selectingAnotherActivityClearsThePreviousSelection() {

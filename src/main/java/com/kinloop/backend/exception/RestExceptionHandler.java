@@ -95,6 +95,16 @@ public class RestExceptionHandler {
         return error(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(DailyPlanItemNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleDailyPlanItemNotFound(DailyPlanItemNotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(FeedbackAlreadySubmittedException.class)
+    public ResponseEntity<ApiErrorResponse> handleFeedbackAlreadySubmitted(FeedbackAlreadySubmittedException ex) {
+        return error(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(ActivityNotInDailyPlanException.class)
     public ResponseEntity<ApiErrorResponse> handleActivityNotInDailyPlan(ActivityNotInDailyPlanException ex) {
         return error(HttpStatus.BAD_REQUEST, ex.getMessage());

@@ -50,6 +50,12 @@ public class Child {
     @Column(name = "preference_mode", nullable = false, length = 15)
     private PreferenceMode preferenceMode = PreferenceMode.BALANCED;
 
+    @Column(name = "daily_time_budget_min", nullable = false)
+    private short dailyTimeBudgetMin = 25;
+
+    @Column(name = "daily_time_budget_max", nullable = false)
+    private short dailyTimeBudgetMax = 35;
+
     @Column(name = "onboarding_completed_at")
     private OffsetDateTime onboardingCompletedAt;
 

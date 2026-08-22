@@ -35,4 +35,14 @@ public class ChildIntelligenceScore {
     public void applyPrior(BigDecimal delta, BigDecimal min, BigDecimal max) {
         score = score.add(delta).max(min).min(max);
     }
+
+    public BigDecimal applyFeedback(BigDecimal delta, BigDecimal min, BigDecimal max) {
+        BigDecimal previous = score;
+        score = score.add(delta).max(min).min(max);
+        return score.subtract(previous);
+    }
+
+    public void recordFeedbackSample() {
+        feedbackCount++;
+    }
 }

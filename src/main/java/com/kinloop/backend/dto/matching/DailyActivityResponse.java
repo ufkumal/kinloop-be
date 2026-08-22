@@ -15,6 +15,8 @@ public record DailyActivityResponse(
         String easierVariation,
         String harderVariation,
         String observationTip,
+        boolean withinBudget,
+        boolean repeatNotice,
         boolean selected
 ) {
 }

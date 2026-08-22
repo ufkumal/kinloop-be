@@ -49,7 +49,7 @@ class HomeFeedbackControllerTest {
                 true,
                 1,
                 null,
-                List.of(new QuestionOptionResponse("LOVED", "Çok sevdi", 1))
+                List.of(new QuestionOptionResponse("LIKED", "Yaptık, sevdi", 1))
         );
         when(feedbackQuestionService.questions())
                 .thenReturn(new FeedbackQuestionsResponse(List.of(question)));
@@ -59,6 +59,6 @@ class HomeFeedbackControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.questions[0].code").value("FB_ENJOYMENT"))
                 .andExpect(jsonPath("$.questions[0].type").value("SINGLE_CHOICE"))
-                .andExpect(jsonPath("$.questions[0].options[0].code").value("LOVED"));
+                .andExpect(jsonPath("$.questions[0].options[0].code").value("LIKED"));
     }
 }

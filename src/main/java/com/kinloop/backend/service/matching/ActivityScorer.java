@@ -1,48 +1,138 @@
 package com.kinloop.backend.service.matching;
 
-import com.kinloop.backend.entity.*;
-import com.kinloop.backend.entity.enums.*;
-
-import java.math.*;
-import java.util.*;
-
+import com.kinloop.backend.entity.Activity;
+import com.kinloop.backend.entity.ActivityInstruction;
+import com.kinloop.backend.entity.ChildDomainLevel;
+import com.kinloop.backend.entity.ChildIntelligenceScore;
+import com.kinloop.backend.entity.ChildProfileSnapshot;
+import com.kinloop.backend.entity.DunnProfile;
+import com.kinloop.backend.entity.enums.DevelopmentDomain;
+import com.kinloop.backend.entity.enums.IntelligenceType;
+import com.kinloop.backend.entity.enums.InvolvementType;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
 import org.springframework.stereotype.Component;
 
 @Component
 public class ActivityScorer {
-    public ScoredActivity score(Activity a, ChildProfileSnapshot profile, DunnProfile dunn, DevelopmentDomain period,
-                                Map<IntelligenceType, ChildIntelligenceScore> scores, Map<DevelopmentDomain, ChildDomainLevel> levels,
-                                Set<Long> yesterday, Map<String, BigDecimal> p) {
-        double d = dunn.getNoiseWeight() == null ? 0 : dunn.getNoiseWeight().doubleValue() * Math.abs(dunn.getNoiseTolerance() - a.getNoiseLoad())
-                                                       + dunn.getVisualWeight().doubleValue() * Math.abs(dunn.getVisualTolerance() - a.getVisualLoad())
-                                                       + dunn.getMovementWeight().doubleValue() * Math.abs(dunn.getMovementTolerance() - a.getPhysicalIntensity());
-        BigDecimal target = scores.get(a.getTargetIntelligence()).getScore();
-        BigDecimal secondary = a.getSecondaryIntelligence() == null ? null : scores.get(a.getSecondaryIntelligence()).getScore();
-        double g = target.compareTo(p.get("gardner_comfort_threshold")) >= 0 ? p.get("gardner_comfort_bonus").doubleValue()
-                : target.compareTo(p.get("gardner_bridge_target_threshold")) <= 0 && secondary != null && secondary.compareTo(p.get("gardner_bridge_secondary_threshold")) >= 0 ? p.get("gardner_bridge_bonus").doubleValue()
-                  : target.compareTo(p.get("gardner_block_threshold")) <= 0 ? p.get("gardner_block_penalty").doubleValue() : 0;
-        double periodBonus = a.getTargetDomain() == period ? p.get("developmental_period_bonus").doubleValue() : 0;
-        int level = levels.get(a.getTargetDomain()).getLevel();
-        boolean supported = a.getInstruction() != null && a.getInstruction().getEasierVariation() != null && !a.getInstruction().getEasierVariation().isBlank();
-        double z = a.getDifficulty() == level + 1 && supported ? p.get("zpd_sweet_spot_bonus").doubleValue() : a.getDifficulty() > level + 1 ? p.get("zpd_frustration_penalty").doubleValue() : a.getDifficulty() < level ? p.get("zpd_boredom_penalty").doubleValue() : 0;
-        double b = profile.getSeparationAnxiety() != null && profile.getSeparationAnxiety() >= p.get("high_separation_anxiety_threshold").intValue() && a.getInvolvementType() != InvolvementType.BAGIMSIZ ? p.get("attachment_multiplier").doubleValue() : 1;
-        double t = yesterday.contains(a.getId()) ? p.get("freshness_penalty").doubleValue() : 0;
-        double raw = (p.get("score_base").doubleValue() - d + g + periodBonus + z) * b - t;
-        double display = Math.max(p.get("score_display_min").doubleValue(), Math.min(p.get("score_display_max").doubleValue(), raw));
+
+    public ScoredActivity score(
+            Activity activity,
+            ChildProfileSnapshot profile,
+            DunnProfile dunn,
+            DevelopmentDomain period,
+            Map<IntelligenceType, ChildIntelligenceScore> scores,
+            Map<DevelopmentDomain, ChildDomainLevel> levels,
+            Map<String, BigDecimal> parameters
+    ) {
+        BigDecimal sensoryPenalty = sensoryPenalty(activity, dunn);
+        BigDecimal interestBonus = interestBonus(activity, scores, parameters);
+        BigDecimal periodBonus = activity.getTargetDomain() == period
+                ? parameters.get("developmental_period_bonus") : BigDecimal.ZERO;
+        BigDecimal difficultyBonus = difficultyBonus(activity, levels, parameters);
+        BigDecimal attachmentMultiplier = attachmentMultiplier(activity, profile, parameters);
+
+        BigDecimal raw = parameters.get("score_base")
+                .subtract(sensoryPenalty)
+                .add(interestBonus)
+                .add(periodBonus)
+                .add(difficultyBonus)
+                .multiply(attachmentMultiplier);
+        BigDecimal roundedRaw = decimal(raw);
+        BigDecimal display = roundedRaw.max(parameters.get("score_display_min"))
+                .min(parameters.get("score_display_max"));
+
         Map<String, Object> breakdown = new LinkedHashMap<>();
-        breakdown.put("base", p.get("score_base"));
-        breakdown.put("D", d);
-        breakdown.put("G", g);
+        breakdown.put("base", parameters.get("score_base"));
+        breakdown.put("D", sensoryPenalty);
+        breakdown.put("G", interestBonus);
         breakdown.put("P", periodBonus);
-        breakdown.put("Z", z);
-        breakdown.put("B", b);
-        breakdown.put("T", t);
-        breakdown.put("rawScore", raw);
+        breakdown.put("Z", difficultyBonus);
+        breakdown.put("B", attachmentMultiplier);
+        breakdown.put("rawScore", roundedRaw);
         breakdown.put("displayScore", display);
-        return new ScoredActivity(a, decimal(raw), decimal(display), breakdown);
+        return new ScoredActivity(activity, roundedRaw, display, breakdown);
     }
 
-    private BigDecimal decimal(double value) {
-        return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP);
+    private BigDecimal sensoryPenalty(Activity activity, DunnProfile dunn) {
+        BigDecimal noiseWeight = Objects.requireNonNull(dunn.getNoiseWeight(), "Dunn noise weight is required");
+        BigDecimal visualWeight = Objects.requireNonNull(dunn.getVisualWeight(), "Dunn visual weight is required");
+        BigDecimal movementWeight = Objects.requireNonNull(dunn.getMovementWeight(), "Dunn movement weight is required");
+        return noiseWeight.multiply(distance(dunn.getNoiseTolerance(), activity.getNoiseLoad()))
+                .add(visualWeight.multiply(distance(dunn.getVisualTolerance(), activity.getVisualLoad())))
+                .add(movementWeight.multiply(distance(dunn.getMovementTolerance(), activity.getPhysicalIntensity())));
+    }
+
+    private BigDecimal interestBonus(
+            Activity activity,
+            Map<IntelligenceType, ChildIntelligenceScore> scores,
+            Map<String, BigDecimal> parameters
+    ) {
+        BigDecimal target = scores.get(activity.getTargetIntelligence()).getScore();
+        BigDecimal secondary = activity.getSecondaryIntelligence() == null
+                ? null : scores.get(activity.getSecondaryIntelligence()).getScore();
+        if (target.compareTo(parameters.get("gardner_comfort_threshold")) >= 0) {
+            return parameters.get("gardner_comfort_bonus");
+        }
+        if (target.compareTo(parameters.get("gardner_bridge_target_threshold")) <= 0
+                && secondary != null
+                && secondary.compareTo(parameters.get("gardner_bridge_secondary_threshold")) >= 0) {
+            return parameters.get("gardner_bridge_bonus");
+        }
+        if (target.compareTo(parameters.get("gardner_block_threshold")) <= 0) {
+            return parameters.get("gardner_block_penalty");
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private BigDecimal difficultyBonus(
+            Activity activity,
+            Map<DevelopmentDomain, ChildDomainLevel> levels,
+            Map<String, BigDecimal> parameters
+    ) {
+        int level = levels.get(activity.getTargetDomain()).getLevel();
+        int difficulty = activity.getDifficulty();
+        ActivityInstruction instruction = activity.getInstruction();
+        boolean hasEasierVariation = hasText(instruction == null ? null : instruction.getEasierVariation());
+        boolean hasHarderVariation = hasText(instruction == null ? null : instruction.getHarderVariation());
+        int levelMax = parameters.get("level_max").intValueExact();
+        boolean ceilingRequiresHarder = parameters.get("ceiling_sweet_spot_requires_harder").signum() != 0;
+
+        if (difficulty == level + 1 && hasEasierVariation) {
+            return parameters.get("zpd_sweet_spot_bonus");
+        }
+        if (level == levelMax && difficulty == level && (!ceilingRequiresHarder || hasHarderVariation)) {
+            return parameters.get("zpd_sweet_spot_bonus");
+        }
+        if (difficulty == level) return BigDecimal.ZERO;
+        if (difficulty < level) return parameters.get("zpd_boredom_penalty");
+        if (difficulty > level + 1) return parameters.get("zpd_frustration_penalty");
+        return BigDecimal.ZERO;
+    }
+
+    private BigDecimal attachmentMultiplier(
+            Activity activity,
+            ChildProfileSnapshot profile,
+            Map<String, BigDecimal> parameters
+    ) {
+        boolean anxious = profile.getSeparationAnxiety() != null
+                && profile.getSeparationAnxiety() >= parameters.get("attachment_anxiety_threshold").intValueExact();
+        return anxious && activity.getInvolvementType() == InvolvementType.BIRLIKTE
+                ? parameters.get("attachment_multiplier_together") : BigDecimal.ONE;
+    }
+
+    private BigDecimal distance(short tolerance, short load) {
+        return BigDecimal.valueOf(Math.abs((int) tolerance - load));
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private BigDecimal decimal(BigDecimal value) {
+        return value.setScale(2, RoundingMode.HALF_UP);
     }
 }

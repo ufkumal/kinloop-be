@@ -10,10 +10,6 @@ public record HomeStatusResponse(
         HomeActivityResponse latestActivity
 ) {
 
-    public HomeStatusResponse(String state) {
-        this(state, null, null, null);
-    }
-
     public static HomeStatusResponse newUser() {
         return new HomeStatusResponse("new-user", null, null, null);
     }
