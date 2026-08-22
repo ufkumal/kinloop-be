@@ -14,6 +14,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ActivityMatchingService {
     private final ChildRepository childRepository;
     private final ChildProfileSnapshotRepository profileRepository;
@@ -39,7 +41,6 @@ public class ActivityMatchingService {
     private final ActivityScorer scorer;
     private final CandidateOrdering candidateOrdering;
     private final DailyPortfolioBuilder portfolioBuilder;
-    private final StrengthenCandidateSelector strengthenCandidateSelector;
 
     @Transactional
     public DailyPlanResponse today(Child requestedChild) {
@@ -51,15 +52,16 @@ public class ActivityMatchingService {
         ChildProfileSnapshot profile = profileRepository.findByChildIdAndCurrentTrue(child.getId())
                 .orElseThrow(() -> new IllegalStateException("Child onboarding profile is missing"));
         short budget = child.getDailyTimeBudgetMax();
+        int ageMonths = child.ageInMonths(today);
         Map<String, BigDecimal> p = parameters.load();
-        stateInitializer.initialize(child.getId(), profile.getGardnerPriors(), p);
+        stateInitializer.initialize(child.getId(), ageMonths, profile.getGardnerPriors(), p);
 
         DunnQuadrant quadrant = profile.getDunnQuadrant() == null ? DunnQuadrant.MIXED : profile.getDunnQuadrant();
         DunnProfile dunn = dunnRepository.findById(quadrant).orElseThrow(() -> new IllegalStateException("Dunn profile is missing: " + quadrant));
-        DevelopmentDomain period = periodRepository.findForAge(child.ageInMonths(today)).orElseThrow(() -> new IllegalStateException("Developmental period is missing")).getTargetDomain();
+        DevelopmentDomain period = periodRepository.findForAge(ageMonths).orElseThrow(() -> new IllegalStateException("Developmental period is missing")).getTargetDomain();
         Map<IntelligenceType, ChildIntelligenceScore> scores = intelligenceRepository.findByChildId(child.getId()).stream().collect(Collectors.toMap(ChildIntelligenceScore::getIntelligenceType, Function.identity()));
         Map<DevelopmentDomain, ChildDomainLevel> levels = domainRepository.findByChildId(child.getId()).stream().collect(Collectors.toMap(ChildDomainLevel::getDomain, Function.identity()));
-        List<Activity> preFreshnessPool = activityRepository.findEligibleBasePool(child.ageInMonths(today), budget).stream()
+        List<Activity> preFreshnessPool = activityRepository.findEligibleBasePool(ageMonths, budget).stream()
                 .filter(a -> eligibilityPolicy.allows(a, profile, p))
                 .toList();
         int freshnessWindow = freshnessPolicy.windowSize(preFreshnessPool.size(), p);
@@ -68,30 +70,42 @@ public class ActivityMatchingService {
         ActivityFreshnessPolicy.Result activityPool = freshnessPolicy.eliminate(
                 preFreshnessPool, recentActivityIds, freshnessWindow);
 
-        List<ScoredActivity> scored = activityPool.eligiblePool().stream()
+        List<ScoredActivity> preFreshnessScored = activityPool.preFreshnessPool().stream()
                 .map(a -> scorer.score(a, profile, dunn, period, scores, levels, p))
                 .sorted(candidateOrdering.comparator(child.getId(), today, scores, p))
                 .toList();
-        if (scored.isEmpty()) throw new IllegalStateException("No eligible activities for this child today");
-
-        int leastSamples = scores.values().stream().mapToInt(ChildIntelligenceScore::getFeedbackCount).min().orElse(0);
-        Set<IntelligenceType> leastKnown = scores.values().stream().filter(x -> x.getFeedbackCount() == leastSamples).map(ChildIntelligenceScore::getIntelligenceType).collect(Collectors.toSet());
-        int limit = p.get("slot_candidate_limit").intValue();
-        int exploreLimit = p.get("explore_random_top_limit").intValue();
-        List<ScoredActivity> develop = top(scored.stream().filter(x -> x.activity().getTargetDomain() == period).toList(), limit);
-        List<ScoredActivity> strengthen = strengthenCandidateSelector.select(scored, scores, limit);
-        List<ScoredActivity> explore = top(scored.stream().filter(x -> leastKnown.contains(x.activity().getTargetIntelligence())).toList(), exploreLimit);
-        // TODO(v5-policy): Tue/Thu/Sat second-strengthening behavior awaits a distinct persistence slot (TBA item 7).
-        List<DailyPortfolioBuilder.Selection> selection = portfolioBuilder.build(develop, strengthen, explore, budget);
-        if (selection.isEmpty()) throw new IllegalStateException("No development activity fits the daily budget");
+        Set<Long> freshIds = activityPool.eligiblePool().stream().map(Activity::getId).collect(Collectors.toSet());
+        List<ScoredActivity> freshScored = preFreshnessScored.stream()
+                .filter(candidate -> freshIds.contains(candidate.activity().getId()))
+                .toList();
+        boolean supervisedGuarantee = profile.getSeparationAnxiety() != null
+                && profile.getSeparationAnxiety() >= p.get("attachment_anxiety_threshold").intValueExact()
+                && p.get("attachment_guarantee_supervised").signum() != 0;
+        DailyPortfolioBuilder.Result portfolio = portfolioBuilder.build(new DailyPortfolioBuilder.Request(
+                freshScored,
+                preFreshnessScored,
+                activityPool.excludedActivityIds(),
+                period,
+                scores,
+                budget,
+                supervisedGuarantee
+        ));
+        portfolio.warnings().forEach(warning -> log.warn(
+                "daily_plan_fallback childId={} profile={} missingSlot={} fallbackLevel={} reason={}",
+                child.getId(), quadrant, warning.missingSlot(), warning.fallbackLevel(), warning.reason()));
 
         DailyPlan plan = new DailyPlan(
                 child.getId(), today, child.getDailyTimeBudgetMin(), child.getDailyTimeBudgetMax());
+        plan.recordBookkeeping(
+                portfolio.committedDurationMinutes(),
+                portfolio.totalDurationMinutes(),
+                portfolio.fallbackLevel());
         short rank = 1;
-        for (var selected : selection) {
+        for (var selected : portfolio.selections()) {
             ScoredActivity match = selected.activity();
             recommendationRepository.save(new Recommendation(child.getId(), match.activity(), match.rawScore(), rank++, match.breakdown()));
-            plan.add(match.activity(), selected.slot(), match.rawScore());
+            plan.add(match.activity(), selected.slot(), match.rawScore(),
+                    selected.withinBudget(), selected.repeatNotice());
         }
         return response(planRepository.save(plan));
     }
@@ -102,10 +116,6 @@ public class ActivityMatchingService {
                 .orElseThrow(() -> new DailyPlanNotFoundException(child.getId()));
         plan.select(activityId);
         return response(planRepository.save(plan));
-    }
-
-    private List<ScoredActivity> top(List<ScoredActivity> values, int limit) {
-        return values.stream().limit(limit).toList();
     }
 
     private DailyPlanResponse response(DailyPlan plan) {
@@ -119,7 +129,11 @@ public class ActivityMatchingService {
                 plan.getCommittedDurationMinutes(),
                 plan.getTotalDurationMinutes(),
                 plan.getFallbackLevel(),
-                items
+                items,
+                plan.getFallbackLevel() == 4 ? "EMPTY_POOL" : "READY",
+                plan.getFallbackLevel() == 4
+                        ? "Bugün çocuğunuza uygun bir etkinlik planı oluşturamadık. Lütfen daha sonra tekrar deneyin."
+                        : null
         );
     }
 

@@ -2,7 +2,9 @@ package com.kinloop.backend.dto.matching;
 
 import java.time.LocalDate;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record DailyPlanResponse(
         Long planId,
         Long childId,
@@ -12,6 +14,8 @@ public record DailyPlanResponse(
         int committedDurationMinutes,
         int totalDurationMinutes,
         short fallbackLevel,
-        List<DailyActivityResponse> activities
+        List<DailyActivityResponse> activities,
+        String state,
+        String message
 ) {
 }

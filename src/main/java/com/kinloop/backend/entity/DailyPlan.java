@@ -58,7 +58,32 @@ public class DailyPlan {
             boolean withinBudget,
             boolean repeatNotice
     ) {
+        if (items.stream().anyMatch(item -> item.getSlotType() == slot)) {
+            throw new IllegalArgumentException("Daily plan slot already filled: " + slot);
+        }
+        if (items.stream().anyMatch(item -> item.getActivity().getId().equals(activity.getId()))) {
+            throw new IllegalArgumentException("Activity already exists in daily plan: " + activity.getId());
+        }
         items.add(new DailyPlanItem(this, activity, slot, score, withinBudget, repeatNotice));
+    }
+
+    public void recordBookkeeping(
+            int committedDurationMinutes,
+            int totalDurationMinutes,
+            short fallbackLevel
+    ) {
+        if (committedDurationMinutes < 0 || committedDurationMinutes > budgetMax) {
+            throw new IllegalArgumentException("Committed duration must be between zero and budget maximum");
+        }
+        if (totalDurationMinutes < committedDurationMinutes) {
+            throw new IllegalArgumentException("Total duration cannot be less than committed duration");
+        }
+        if (fallbackLevel < 0 || fallbackLevel > 4) {
+            throw new IllegalArgumentException("Fallback level must be between 0 and 4");
+        }
+        this.committedDurationMinutes = committedDurationMinutes;
+        this.totalDurationMinutes = totalDurationMinutes;
+        this.fallbackLevel = fallbackLevel;
     }
 
     public void select(Long activityId) {

@@ -3,19 +3,25 @@ package com.kinloop.backend.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.kinloop.backend.dto.matching.DailyActivityResponse;
 import com.kinloop.backend.dto.matching.DailyPlanResponse;
+import com.kinloop.backend.dto.feedback.ActivityFeedbackResponse;
 import com.kinloop.backend.entity.Child;
+import com.kinloop.backend.entity.enums.DevelopmentDomain;
+import com.kinloop.backend.entity.enums.FeedbackType;
 import com.kinloop.backend.exception.CustomAccessDeniedHandler;
 import com.kinloop.backend.security.CustomAuthenticationEntryPoint;
 import com.kinloop.backend.security.JwtService;
 import com.kinloop.backend.service.ActivityMatchingService;
 import com.kinloop.backend.service.ChildService;
 import com.kinloop.backend.service.CurrentParentProfileService;
+import com.kinloop.backend.service.FeedbackLearningService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -34,6 +40,7 @@ class DailyPlanControllerTest {
     @MockBean private CurrentParentProfileService currentParentProfileService;
     @MockBean private ChildService childService;
     @MockBean private ActivityMatchingService matchingService;
+    @MockBean private FeedbackLearningService feedbackLearningService;
     @MockBean private JwtService jwtService;
     @MockBean private UserDetailsService userDetailsService;
     @MockBean private CustomAuthenticationEntryPoint authenticationEntryPoint;
@@ -48,7 +55,8 @@ class DailyPlanControllerTest {
                 false, true, false
         );
         DailyPlanResponse response = new DailyPlanResponse(
-                7L, 9L, LocalDate.of(2026, 8, 22), 25, 35, 24, 36, (short) 2, List.of(activity)
+                7L, 9L, LocalDate.of(2026, 8, 22), 25, 35, 24, 36, (short) 2,
+                List.of(activity), "READY", null
         );
         when(currentParentProfileService.currentParentProfileId(any())).thenReturn(5L);
         when(childService.getOwnedChild(9L, 5L)).thenReturn(new Child());
@@ -62,7 +70,31 @@ class DailyPlanControllerTest {
                 .andExpect(jsonPath("$.committedDurationMinutes").value(24))
                 .andExpect(jsonPath("$.totalDurationMinutes").value(36))
                 .andExpect(jsonPath("$.fallbackLevel").value(2))
+                .andExpect(jsonPath("$.state").value("READY"))
                 .andExpect(jsonPath("$.activities[0].withinBudget").value(false))
                 .andExpect(jsonPath("$.activities[0].repeatNotice").value(true));
+    }
+
+    @Test
+    void feedbackEndpointChecksOwnershipAndReturnsLearningState() throws Exception {
+        Child child = new Child();
+        child.setId(9L);
+        when(currentParentProfileService.currentParentProfileId(any())).thenReturn(5L);
+        when(childService.getOwnedChild(9L, 5L)).thenReturn(child);
+        when(feedbackLearningService.submit(any(), org.mockito.ArgumentMatchers.eq(11L), any()))
+                .thenReturn(new ActivityFeedbackResponse(
+                        31L, 11L, FeedbackType.LIKED, null,
+                        DevelopmentDomain.LANGUAGE, (short) 2, new BigDecimal("0.5")));
+
+        mockMvc.perform(post("/api/children/9/daily-plan/items/11/feedback")
+                        .with(user("parent@example.com").roles("PARENT"))
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content("{\"feedbackType\":\"LIKED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.feedbackType").value("LIKED"))
+                .andExpect(jsonPath("$.domain").value("LANGUAGE"))
+                .andExpect(jsonPath("$.domainLevel").value(2))
+                .andExpect(jsonPath("$.domainStreak").value(0.5));
     }
 }

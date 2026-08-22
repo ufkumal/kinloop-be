@@ -37,9 +37,9 @@ class FeedbackQuestionServiceTest {
                 "FB_ENJOYMENT", "Çocuğun etkinlikten keyif aldı mı?",
                 QuestionType.SINGLE_CHOICE, true, 1, null);
         enjoyment.setOptions(List.of(
-                option("LOVED", "Çok sevdi", 1),
-                option("LIKED", "Biraz sevdi", 2),
-                option("NOT_INTERESTED", "Pek ilgilenmedi", 3)
+                option("LIKED", "Yaptık, sevdi", 1),
+                option("STRUGGLED", "Denedik, zorlandı", 2),
+                option("DISLIKED", "Olmadı, sevmedi", 3)
         ));
         Question comment = question(
                 "FB_COMMENT", "Deneyiminizi kendi cümlelerinizle paylaşın.",
@@ -54,7 +54,7 @@ class FeedbackQuestionServiceTest {
         assertEquals("FB_ENJOYMENT", response.questions().get(0).code());
         assertTrue(response.questions().get(0).required());
         assertEquals(3, response.questions().get(0).options().size());
-        assertEquals("LOVED", response.questions().get(0).options().get(0).code());
+        assertEquals("LIKED", response.questions().get(0).options().get(0).code());
         assertEquals("FB_COMMENT", response.questions().get(1).code());
         assertFalse(response.questions().get(1).required());
         assertEquals(2000, response.questions().get(1).maxLength());

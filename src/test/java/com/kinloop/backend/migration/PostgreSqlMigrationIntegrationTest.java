@@ -80,7 +80,7 @@ class PostgreSqlMigrationIntegrationTest {
     }
 
     @Test
-    void appliesEveryMigrationThroughV21() throws SQLException {
+    void appliesEveryMigrationThroughV22() throws SQLException {
         MigrationHistory history = queryOne("""
                 SELECT count(*) AS migration_count,
                        min(version::integer) AS first_version,
@@ -95,11 +95,38 @@ class PostgreSqlMigrationIntegrationTest {
                 result.getBoolean("all_successful")));
 
         assertAll(
-                () -> assertEquals(21, migrationsExecuted),
-                () -> assertEquals(21, history.migrationCount()),
+                () -> assertEquals(22, migrationsExecuted),
+                () -> assertEquals(22, history.migrationCount()),
                 () -> assertEquals(1, history.firstVersion()),
-                () -> assertEquals(21, history.lastVersion()),
+                () -> assertEquals(22, history.lastVersion()),
                 () -> assertTrue(history.allSuccessful()));
+    }
+
+    @Test
+    void simplifiesActivityFeedbackQuestions() throws SQLException {
+        int removedQuestionCount = queryInt("SELECT count(*) FROM questions WHERE id = 14");
+        int removedOptionCount = queryInt("SELECT count(*) FROM question_options WHERE question_id = 14");
+        Map<String, String> options = new LinkedHashMap<>();
+
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT code, label
+                FROM question_options
+                WHERE question_id = 13
+                ORDER BY display_order
+                """);
+             ResultSet result = statement.executeQuery()) {
+            while (result.next()) {
+                options.put(result.getString("code"), result.getString("label"));
+            }
+        }
+
+        assertAll(
+                () -> assertEquals(0, removedQuestionCount),
+                () -> assertEquals(0, removedOptionCount),
+                () -> assertEquals(Map.of(
+                        "LIKED", "Yaptık, sevdi",
+                        "STRUGGLED", "Denedik, zorlandı",
+                        "DISLIKED", "Olmadı, sevmedi"), options));
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.kinloop.backend.service.matching;
 
+import com.kinloop.backend.entity.ScoringParameter;
 import com.kinloop.backend.repository.ScoringParameterRepository;
 
 import java.math.BigDecimal;
@@ -15,6 +16,6 @@ public class MatchingParameters {
     private final ScoringParameterRepository repository;
 
     public Map<String, BigDecimal> load() {
-        return repository.findAll().stream().collect(Collectors.toUnmodifiableMap(p -> p.getKey(), p -> p.getValue()));
+        return repository.findAll().stream().collect(Collectors.toUnmodifiableMap(ScoringParameter::getKey, ScoringParameter::getValue));
     }
 }

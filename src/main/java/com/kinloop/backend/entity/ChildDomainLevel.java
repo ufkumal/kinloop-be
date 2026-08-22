@@ -30,4 +30,25 @@ public class ChildDomainLevel {
         this.domain = domain;
         this.level = level;
     }
+
+    public void applyFeedback(
+            BigDecimal delta,
+            BigDecimal levelUpThreshold,
+            BigDecimal levelDownThreshold,
+            short levelMin,
+            short levelMax,
+            BigDecimal ceilingCounterCap
+    ) {
+        streak = streak.add(delta);
+        if (level == levelMax && streak.compareTo(ceilingCounterCap) > 0) {
+            streak = ceilingCounterCap;
+        }
+        if (level < levelMax && streak.compareTo(levelUpThreshold) >= 0) {
+            level++;
+            streak = BigDecimal.ZERO;
+        } else if (streak.compareTo(levelDownThreshold) < 0) {
+            if (level > levelMin) level--;
+            streak = BigDecimal.ZERO;
+        }
+    }
 }

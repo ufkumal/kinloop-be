@@ -2,10 +2,13 @@ package com.kinloop.backend.controller;
 
 import com.kinloop.backend.dto.matching.DailyPlanResponse;
 import com.kinloop.backend.dto.matching.SelectDailyActivityRequest;
+import com.kinloop.backend.dto.feedback.ActivityFeedbackResponse;
+import com.kinloop.backend.dto.feedback.SubmitActivityFeedbackRequest;
 import com.kinloop.backend.entity.Child;
 import com.kinloop.backend.service.ActivityMatchingService;
 import com.kinloop.backend.service.ChildService;
 import com.kinloop.backend.service.CurrentParentProfileService;
+import com.kinloop.backend.service.FeedbackLearningService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -23,6 +26,7 @@ public class DailyPlanController {
     private final CurrentParentProfileService currentParentProfileService;
     private final ChildService childService;
     private final ActivityMatchingService matchingService;
+    private final FeedbackLearningService feedbackLearningService;
 
     @GetMapping("/today")
     public DailyPlanResponse today(@PathVariable Long childId, Authentication authentication) {
@@ -38,5 +42,17 @@ public class DailyPlanController {
         Long parentId = currentParentProfileService.currentParentProfileId(authentication);
         Child child = childService.getOwnedChild(childId, parentId);
         return matchingService.selectActivity(child, request.activityId());
+    }
+
+    @PostMapping("/items/{dailyPlanItemId}/feedback")
+    public ActivityFeedbackResponse submitFeedback(
+            @PathVariable Long childId,
+            @PathVariable Long dailyPlanItemId,
+            @Valid @RequestBody SubmitActivityFeedbackRequest request,
+            Authentication authentication
+    ) {
+        Long parentId = currentParentProfileService.currentParentProfileId(authentication);
+        Child child = childService.getOwnedChild(childId, parentId);
+        return feedbackLearningService.submit(child, dailyPlanItemId, request);
     }
 }

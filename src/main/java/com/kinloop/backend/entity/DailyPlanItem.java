@@ -63,6 +63,10 @@ public class DailyPlanItem {
         return completedAt != null;
     }
 
+    public void complete() {
+        if (completedAt == null) completedAt = OffsetDateTime.now();
+    }
+
     void select() {
         selectedAt = OffsetDateTime.now();
     }
