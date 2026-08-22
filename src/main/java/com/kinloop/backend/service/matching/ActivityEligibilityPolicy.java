@@ -11,12 +11,17 @@ import org.springframework.stereotype.Component;
 @Component
 public class ActivityEligibilityPolicy {
     public boolean allows(Activity a, ChildProfileSnapshot profile, Map<String, BigDecimal> p) {
-        if (profile.getFocusBand() == FocusBand.SHORT && a.getDurationMinutes() > p.get("short_focus_max_duration_minutes").intValue())
+        // v6 pool steps 4-6. Steps 1-3 are applied by ActivityRepository.
+        if (profile.getDunnQuadrant() == DunnQuadrant.C4
+                && Math.max(a.getNoiseLoad(), a.getVisualLoad()) >= p.get("c4_hard_filter_load_threshold").intValue())
             return false;
-        if (profile.getSeparationAnxiety() != null && profile.getSeparationAnxiety() >= p.get("high_separation_anxiety_threshold").intValue() && a.getInvolvementType() == InvolvementType.BAGIMSIZ)
+        if (profile.getSeparationAnxiety() != null
+                && profile.getSeparationAnxiety() >= p.get("attachment_anxiety_threshold").intValue()
+                && a.getInvolvementType() == InvolvementType.BAGIMSIZ)
             return false;
-        if (profile.getDunnQuadrant() == DunnQuadrant.C4)
-            return Math.max(a.getNoiseLoad(), Math.max(a.getVisualLoad(), a.getPhysicalIntensity())) < p.get("c4_hard_filter_load_threshold").intValue();
+        if (profile.getFocusBand() == FocusBand.SHORT
+                && a.getDurationMinutes() > p.get("short_focus_max_duration_minutes").intValue())
+            return false;
         return true;
     }
 }

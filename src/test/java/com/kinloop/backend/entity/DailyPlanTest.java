@@ -33,6 +33,14 @@ class DailyPlanTest {
     }
 
     @Test
+    void planSnapshotsTheChildBudgetRange() {
+        DailyPlan plan = new DailyPlan(10L, LocalDate.now(), (short) 35, (short) 45);
+
+        assertEquals(35, plan.getBudgetMin());
+        assertEquals(45, plan.getBudgetMax());
+    }
+
+    @Test
     void selectingAnotherActivityClearsThePreviousSelection() {
         DailyPlan plan = new DailyPlan(10L, LocalDate.now());
         Activity first = activity(1L);

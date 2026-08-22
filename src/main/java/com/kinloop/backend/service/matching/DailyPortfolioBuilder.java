@@ -9,16 +9,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class DailyPortfolioBuilder {
-    private final Random random;
-
-    public DailyPortfolioBuilder() {
-        this(new Random());
-    }
-
-    DailyPortfolioBuilder(Random random) {
-        this.random = random;
-    }
-
     public record Selection(PlanSlotType slot, ScoredActivity activity) {
     }
 
@@ -53,12 +43,10 @@ public class DailyPortfolioBuilder {
                 .map(this::totalScore)
                 .max(BigDecimal::compareTo)
                 .orElseThrow();
-        List<List<Selection>> tied = fitting.stream()
+        return fitting.stream()
                 .filter(variant -> totalScore(variant).compareTo(maximum) == 0)
-                .toList();
-
-        // v5 doc §7.1 Eşitlik durumu: equally scored alternatives are resolved by lottery.
-        return tied.get(random.nextInt(tied.size()));
+                .findFirst()
+                .orElseThrow();
     }
 
     private BigDecimal totalScore(List<Selection> variant) {

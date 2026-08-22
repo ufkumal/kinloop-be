@@ -71,7 +71,7 @@ final class MatchingTestFixtures {
     static Map<String, BigDecimal> parameters() {
         Map<String, BigDecimal> values = new java.util.HashMap<>();
         values.put("short_focus_max_duration_minutes", bd("10"));
-        values.put("high_separation_anxiety_threshold", bd("4"));
+        values.put("attachment_anxiety_threshold", bd("4"));
         values.put("c4_hard_filter_load_threshold", bd("3"));
         values.put("score_base", bd("100"));
         values.put("score_display_min", bd("0"));
@@ -87,8 +87,14 @@ final class MatchingTestFixtures {
         values.put("gardner_bridge_bonus", bd("15"));
         values.put("gardner_block_threshold", bd("1.5"));
         values.put("gardner_block_penalty", bd("-15"));
-        values.put("attachment_multiplier", bd("1.15"));
-        values.put("freshness_penalty", bd("30"));
+        values.put("attachment_multiplier_together", bd("1.15"));
+        values.put("level_max", bd("4"));
+        values.put("ceiling_sweet_spot_requires_harder", bd("1"));
+        values.put("freshness_window_divisor", bd("6"));
+        values.put("freshness_window_min", bd("2"));
+        values.put("tiebreak_seed_a", bd("1000003"));
+        values.put("tiebreak_seed_b", bd("10007"));
+        values.put("tiebreak_seed_mod", bd("2147483647"));
         return values;
     }
 

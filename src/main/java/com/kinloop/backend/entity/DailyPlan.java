@@ -37,8 +37,14 @@ public class DailyPlan {
     private List<DailyPlanItem> items = new ArrayList<>();
 
     public DailyPlan(Long childId, LocalDate date) {
+        this(childId, date, (short) 25, (short) 35);
+    }
+
+    public DailyPlan(Long childId, LocalDate date, short budgetMin, short budgetMax) {
         this.childId = childId;
         this.planDate = date;
+        this.budgetMin = budgetMin;
+        this.budgetMax = budgetMax;
     }
 
     public void add(Activity activity, PlanSlotType slot, java.math.BigDecimal score) {

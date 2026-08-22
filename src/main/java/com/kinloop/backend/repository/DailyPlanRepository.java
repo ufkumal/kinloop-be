@@ -12,6 +12,20 @@ public interface DailyPlanRepository extends JpaRepository<DailyPlan, Long> {
     @EntityGraph(attributePaths = {"items", "items.activity", "items.activity.instruction"})
     Optional<DailyPlan> findByChildIdAndPlanDate(Long childId, LocalDate date);
 
-    @Query("select i.activity.id from DailyPlanItem i where i.dailyPlan.childId=:childId and i.dailyPlan.planDate=:date")
-    java.util.Set<Long> findActivityIds(@Param("childId") Long childId, @Param("date") LocalDate date);
+    @Query(value = """
+            SELECT DISTINCT dpi.activity_id
+            FROM daily_plan_items dpi
+            JOIN (
+                SELECT id
+                FROM daily_plans
+                WHERE child_id = :childId AND plan_date < :beforeDate
+                ORDER BY plan_date DESC
+                LIMIT :planLimit
+            ) recent_plans ON recent_plans.id = dpi.daily_plan_id
+            """, nativeQuery = true)
+    java.util.Set<Long> findActivityIdsInRecentPlans(
+            @Param("childId") Long childId,
+            @Param("beforeDate") LocalDate beforeDate,
+            @Param("planLimit") int planLimit
+    );
 }

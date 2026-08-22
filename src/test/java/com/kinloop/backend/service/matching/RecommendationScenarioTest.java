@@ -28,7 +28,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Random;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -38,7 +37,8 @@ import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
 /**
- * Acceptance-level unit tests for the 15 August 2026 v5 recommendation examples.
+ * Acceptance-level regression tests derived from the 15 August 2026 examples
+ * and aligned with the v6 filtering and scoring rules.
  * The canonical activity migration is treated as test input; repositories and Spring
  * are deliberately not involved, so failures point at matching policy changes.
  */
@@ -51,12 +51,7 @@ class RecommendationScenarioTest {
     private final ActivityEligibilityPolicy eligibility = new ActivityEligibilityPolicy();
     private final ActivityScorer scorer = new ActivityScorer();
     private final StrengthenCandidateSelector strengthenSelector = new StrengthenCandidateSelector();
-    private final DailyPortfolioBuilder portfolioBuilder = new DailyPortfolioBuilder(new Random() {
-        @Override
-        public int nextInt(int bound) {
-            return 0;
-        }
-    });
+    private final DailyPortfolioBuilder portfolioBuilder = new DailyPortfolioBuilder();
     private final List<Activity> activities = loadActivities();
 
     @TestFactory
@@ -81,8 +76,9 @@ class RecommendationScenarioTest {
         DevelopmentDomain period = periodFor(scenario.ageMonths());
         DunnProfile dunn = dunnProfile(scenario.quadrant());
         List<ScoredActivity> scored = pool.stream()
+                .filter(activity -> !scenario.yesterday().contains(activity.getId()))
                 .map(activity -> scorer.score(activity, profile, dunn, period,
-                        intelligenceScores, domainLevels, scenario.yesterday(), parameters()))
+                        intelligenceScores, domainLevels, parameters()))
                 .sorted(Comparator.comparing(ScoredActivity::rawScore).reversed()
                         .thenComparing(value -> value.activity().getId()))
                 .toList();
@@ -143,8 +139,7 @@ class RecommendationScenarioTest {
                 () -> assertDecimal(expected.gardner(), breakdown.get("G"), "G"),
                 () -> assertDecimal(expected.period(), breakdown.get("P"), "P"),
                 () -> assertDecimal(expected.zpd(), breakdown.get("Z"), "Z"),
-                () -> assertDecimal(expected.attachment(), breakdown.get("B"), "B"),
-                () -> assertDecimal(expected.freshness(), negate(breakdown.get("T")), "T"));
+                () -> assertDecimal(expected.attachment(), breakdown.get("B"), "B"));
     }
 
     private BigDecimal negate(Object value) {
@@ -174,7 +169,7 @@ class RecommendationScenarioTest {
             case C1, MIXED -> tolerances(profile, 3, 3, 3, "5", "5", "3");
             case C2 -> tolerances(profile, 4, 4, 5, "3", "3", "6");
             case C3 -> tolerances(profile, 2, 2, 3, "10", "10", "6");
-            case C4 -> tolerances(profile, 1, 2, 2, null, null, null);
+            case C4 -> tolerances(profile, 1, 2, 2, "5", "5", "3");
         }
         return profile;
     }
@@ -272,37 +267,37 @@ class RecommendationScenarioTest {
 
     private List<Scenario> scenarios() {
         Map<PlanSlotType, ExpectedActivity> firstPlan = expected(
-                e(PlanSlotType.DEVELOP, 8, "127", "-8", "0", "15", "20", "1", "0"),
-                e(PlanSlotType.STRENGTHEN, 67, "124", "-11", "0", "15", "20", "1", "0"),
-                e(PlanSlotType.EXPLORE, 80, "120", "0", "0", "0", "20", "1", "0"));
+                e(PlanSlotType.DEVELOP, 8, "127", "-8", "0", "15", "20", "1"),
+                e(PlanSlotType.STRENGTHEN, 67, "124", "-11", "0", "15", "20", "1"),
+                e(PlanSlotType.EXPLORE, 80, "120", "0", "0", "0", "20", "1"));
         return List.of(
                 scenario("1 - first day, calm observer", 30, DunnQuadrant.C1, 2, 30, 24, 30, Set.of(), firstPlan),
-                scenario("2 - second day freshness penalty", 30, DunnQuadrant.C1, 2, 30, 24, 30, Set.of(8L, 67L, 80L), expected(
-                        e(PlanSlotType.DEVELOP, 74, "132", "-3", "0", "15", "20", "1", "0"),
-                        e(PlanSlotType.STRENGTHEN, 59, "129", "-6", "0", "15", "20", "1", "0"))),
+                scenario("2 - second day freshness elimination", 30, DunnQuadrant.C1, 2, 30, 24, 30, Set.of(8L, 67L, 80L), expected(
+                        e(PlanSlotType.DEVELOP, 74, "132", "-3", "0", "15", "20", "1"),
+                        e(PlanSlotType.STRENGTHEN, 59, "129", "-6", "0", "15", "20", "1"))),
                 scenario("3 - short 15-minute budget", 30, DunnQuadrant.C1, 2, 15, 24, 15, Set.of(), expected(
-                        e(PlanSlotType.DEVELOP, 74, "132", "-3", "0", "15", "20", "1", "0"))),
+                        e(PlanSlotType.DEVELOP, 74, "132", "-3", "0", "15", "20", "1"))),
                 scenario("4 - energetic explorer", 40, DunnQuadrant.C2, 2, 30, 23, 30, Set.of(), expected(
-                        e(PlanSlotType.DEVELOP, 102, "105", "-30", "0", "15", "20", "1", "0"),
-                        e(PlanSlotType.STRENGTHEN, 104, "108", "-12", "0", "0", "20", "1", "0"),
-                        e(PlanSlotType.EXPLORE, 86, "102", "-18", "0", "0", "20", "1", "0"))),
+                        e(PlanSlotType.DEVELOP, 102, "105", "-30", "0", "15", "20", "1"),
+                        e(PlanSlotType.STRENGTHEN, 104, "108", "-12", "0", "0", "20", "1"),
+                        e(PlanSlotType.EXPLORE, 86, "102", "-18", "0", "0", "20", "1"))),
                 scenario("5 - sensitive observer", 30, DunnQuadrant.C3, 2, 30, 24, 20, Set.of(), expected(
-                        e(PlanSlotType.DEVELOP, 8, "119", "-16", "0", "15", "20", "1", "0"),
-                        e(PlanSlotType.STRENGTHEN, 67, "113", "-22", "0", "15", "20", "1", "0"))),
+                        e(PlanSlotType.DEVELOP, 8, "119", "-16", "0", "15", "20", "1"),
+                        e(PlanSlotType.STRENGTHEN, 67, "113", "-22", "0", "15", "20", "1"))),
                 scenario("6 - high separation anxiety", 30, DunnQuadrant.C1, 4, 30, 22, 30, Set.of(), expected(
-                        e(PlanSlotType.DEVELOP, 8, "146.05", "-8", "0", "15", "20", "1.15", "0"),
-                        e(PlanSlotType.STRENGTHEN, 67, "142.60", "-11", "0", "15", "20", "1.15", "0"),
-                        e(PlanSlotType.EXPLORE, 80, "138", "0", "0", "0", "20", "1.15", "0"))),
+                        e(PlanSlotType.DEVELOP, 8, "146.05", "-8", "0", "15", "20", "1.15"),
+                        e(PlanSlotType.STRENGTHEN, 67, "142.60", "-11", "0", "15", "20", "1.15"),
+                        e(PlanSlotType.EXPLORE, 80, "138", "0", "0", "0", "20", "1.15"))),
                 scenario("7 - eight-month-old baby", 8, DunnQuadrant.C1, 2, 30, 24, 15, Set.of(), expected(
-                        e(PlanSlotType.DEVELOP, 34, "110", "-5", "0", "15", "0", "1", "0"),
-                        e(PlanSlotType.STRENGTHEN, 18, "107", "-8", "0", "15", "0", "1", "0"),
-                        e(PlanSlotType.EXPLORE, 1, "105", "-10", "0", "15", "0", "1", "0"))),
+                        e(PlanSlotType.DEVELOP, 34, "110", "-5", "0", "15", "0", "1"),
+                        e(PlanSlotType.STRENGTHEN, 18, "107", "-8", "0", "15", "0", "1"),
+                        e(PlanSlotType.EXPLORE, 1, "105", "-10", "0", "15", "0", "1"))),
                 scenario("8 - sixty-month-old child", 60, DunnQuadrant.C1, 2, 30, 31, 30, Set.of(), expected(
-                        e(PlanSlotType.DEVELOP, 14, "127", "-8", "0", "15", "20", "1", "0"),
-                        e(PlanSlotType.STRENGTHEN, 118, "117", "-3", "0", "0", "20", "1", "0"))),
+                        e(PlanSlotType.DEVELOP, 14, "127", "-8", "0", "15", "20", "1"),
+                        e(PlanSlotType.STRENGTHEN, 118, "117", "-3", "0", "0", "20", "1"))),
                 scenario("9 - exact 48-month boundary", 48, DunnQuadrant.C1, 2, 30, 37, 30, Set.of(), expected(
-                        e(PlanSlotType.DEVELOP, 95, "132", "-3", "0", "15", "20", "1", "0"),
-                        e(PlanSlotType.STRENGTHEN, 11, "129", "-6", "0", "15", "20", "1", "0"))),
+                        e(PlanSlotType.DEVELOP, 95, "132", "-3", "0", "15", "20", "1"),
+                        e(PlanSlotType.STRENGTHEN, 11, "129", "-6", "0", "15", "20", "1"))),
                 advancedLanguageScenario(),
                 scenario("11 - protective profile content gap", 30, DunnQuadrant.C4, 2, 30, 2, 0, Set.of(), Map.of()));
     }
@@ -310,9 +305,9 @@ class RecommendationScenarioTest {
     private Scenario advancedLanguageScenario() {
         return new Scenario("10 - learned language profile", 30, DunnQuadrant.C1, 2, 30, 24, 30,
                 Set.of(), expected(
-                        e(PlanSlotType.DEVELOP, 8, "117", "-8", "10", "15", "0", "1", "0"),
-                        e(PlanSlotType.STRENGTHEN, 67, "114", "-11", "10", "15", "0", "1", "0"),
-                        e(PlanSlotType.EXPLORE, 80, "120", "0", "0", "0", "20", "1", "0")),
+                        e(PlanSlotType.DEVELOP, 8, "117", "-8", "10", "15", "0", "1"),
+                        e(PlanSlotType.STRENGTHEN, 67, "114", "-11", "10", "15", "0", "1"),
+                        e(PlanSlotType.EXPLORE, 80, "120", "0", "0", "0", "20", "1")),
                 (scores, levels) -> {
                     set(scores.get(IntelligenceType.VERBAL_LINGUISTIC), "score", new BigDecimal("4.20"));
                     set(scores.get(IntelligenceType.VERBAL_LINGUISTIC), "feedbackCount", 6);
@@ -335,8 +330,8 @@ class RecommendationScenarioTest {
     }
 
     private Map.Entry<PlanSlotType, ExpectedActivity> e(
-            PlanSlotType slot, long id, String raw, String d, String g, String p, String z, String b, String t) {
-        return Map.entry(slot, new ExpectedActivity(id, new BigDecimal(raw), new BigDecimal("100"), d, g, p, z, b, t));
+            PlanSlotType slot, long id, String raw, String d, String g, String p, String z, String b) {
+        return Map.entry(slot, new ExpectedActivity(id, new BigDecimal(raw), new BigDecimal("100"), d, g, p, z, b));
     }
 
     private record Scenario(
@@ -347,7 +342,7 @@ class RecommendationScenarioTest {
 
     private record ExpectedActivity(
             long id, BigDecimal rawScore, BigDecimal displayScore,
-            String distance, String gardner, String period, String zpd, String attachment, String freshness) {
+            String distance, String gardner, String period, String zpd, String attachment) {
     }
 
     @FunctionalInterface
