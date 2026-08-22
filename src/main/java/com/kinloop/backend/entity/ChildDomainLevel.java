@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Getter
 @NoArgsConstructor
 @Entity
@@ -21,7 +23,7 @@ public class ChildDomainLevel {
     @Column(nullable = false)
     private short level;
     @Column(nullable = false)
-    private short streak;
+    private BigDecimal streak = BigDecimal.ZERO;
 
     public ChildDomainLevel(Long childId, DevelopmentDomain domain, short level) {
         this.childId = childId;
