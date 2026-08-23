@@ -14,11 +14,11 @@ import jakarta.persistence.LockModeType;
 
 public interface DailyPlanItemRepository extends JpaRepository<DailyPlanItem, Long> {
 
-    @EntityGraph(attributePaths = {"dailyPlan", "activity"})
+    @EntityGraph(attributePaths = {"dailyPlan", "activity", "activity.instruction"})
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<DailyPlanItem> findByIdAndDailyPlanChildId(Long id, Long childId);
 
-    @EntityGraph(attributePaths = {"dailyPlan", "activity"})
+    @EntityGraph(attributePaths = {"dailyPlan", "activity", "activity.instruction"})
     @Query("""
             select item
             from DailyPlanItem item

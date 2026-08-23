@@ -37,7 +37,78 @@ components:
       properties:
         state:
           type: string
-          enum: [new-user, returning-user]
+          enum: [new-user, feedback-required, returning-user]
+        childId:
+          type: integer
+          format: int64
+        childName:
+          type: string
+        latestActivity:
+          $ref: '#/components/schemas/HomeActivityResponse'
+        shouldGenerateDailyPlan:
+          type: boolean
+          description: When true, the client should offer navigation to the daily-plan /today flow.
+
+    HomeActivityResponse:
+      type: object
+      required: [dailyPlanItemId, activityId, title, durationMinutes, slotType, feedbackSubmitted]
+      properties:
+        dailyPlanItemId:
+          type: integer
+          format: int64
+        activityId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+        slotType:
+          type: string
+          enum: [STRENGTHEN, DEVELOP, EXPLORE]
+        intro:
+          type: string
+        purpose:
+          type: string
+        whyItMatters:
+          type: string
+        easierVariation:
+          type: string
+        harderVariation:
+          type: string
+        observationTip:
+          type: string
+        selectedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        feedbackSubmitted:
+          type: boolean
+        feedback:
+          $ref: '#/components/schemas/HomeFeedbackResponse'
+
+    HomeFeedbackResponse:
+      type: object
+      required: [feedbackId, feedbackType]
+      properties:
+        feedbackId:
+          type: integer
+          format: int64
+        feedbackType:
+          type: string
+          enum: [LIKED, STRUGGLED, DISLIKED]
+        resolvedReason:
+          type: string
+          enum: [SENSORY, INVOLVEMENT, INTEREST]
+        freeText:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
 
     RegisterRequest:
       type: object
@@ -266,7 +337,7 @@ paths:
         - bearerAuth: []
       responses:
         '200':
-          description: Home state resolved from onboarding completion
+          description: Home state resolved from onboarding, selection, and feedback history
           content:
             application/json:
               schema:
