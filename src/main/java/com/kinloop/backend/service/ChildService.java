@@ -4,8 +4,7 @@ import com.kinloop.backend.entity.Child;
 import com.kinloop.backend.entity.enums.PreferenceMode;
 import com.kinloop.backend.repository.ChildRepository;
 import com.kinloop.backend.repository.ParentProfileRepository;
-import com.kinloop.backend.entity.ParentProfile;
-import com.kinloop.backend.exception.MissingDailyTimeBudgetException;
+import com.kinloop.backend.dto.onboarding.DailyTimeBudgetRange;
 import com.kinloop.backend.dto.child.CreateChildRequest;
 import com.kinloop.backend.dto.child.CreateChildResponse;
 import com.kinloop.backend.dto.child.SessionSummaryResponse;
@@ -40,21 +39,11 @@ public class ChildService {
             throw new UnsupportedChildAgeException(ageMonths);
         }
 
-        ParentProfile parentProfile = parentProfileRepository.findById(parentProfileId)
+        parentProfileRepository.findById(parentProfileId)
                 .filter(profile -> profile.getDeletedAt() == null)
                 .orElseThrow(() -> new IllegalStateException("Parent profile not found"));
-        if (parentProfile.getDailyTimeBudgetMinutes() == null) {
-            if (request.dailyTimeBudgetOptionCode() == null || request.dailyTimeBudgetOptionCode().isBlank()) {
-                throw new MissingDailyTimeBudgetException();
-            }
-            parentProfile.setDailyTimeBudgetMinutes(
-                    onboardingService.resolveDailyTimeBudget(request.dailyTimeBudgetOptionCode()));
-            parentProfileRepository.save(parentProfile);
-        } else if (request.dailyTimeBudgetOptionCode() != null && !request.dailyTimeBudgetOptionCode().isBlank()) {
-            parentProfile.setDailyTimeBudgetMinutes(
-                    onboardingService.resolveDailyTimeBudget(request.dailyTimeBudgetOptionCode()));
-            parentProfileRepository.save(parentProfile);
-        }
+        DailyTimeBudgetRange budget = onboardingService.resolveDailyTimeBudget(
+                request.dailyTimeBudgetOptionCode(), ageMonths);
 
         Child child = new Child();
         child.setParentId(parentProfileId);
@@ -62,6 +51,8 @@ public class ChildService {
         child.setBirthDate(request.birthDate());
         child.setGender(request.gender());
         child.setPreferenceMode(PreferenceMode.BALANCED);
+        child.setDailyTimeBudgetMin(budget.minMinutes());
+        child.setDailyTimeBudgetMax(budget.maxMinutes());
 
         Child savedChild = childRepository.save(child);
         QuestionnaireSession session = questionnaireSessionService.openInitialSession(savedChild.getId(), ageMonths);

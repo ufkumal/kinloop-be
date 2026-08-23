@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 public interface DailyPlanRepository extends JpaRepository<DailyPlan, Long> {
+    long countByChildId(Long childId);
+
     @EntityGraph(attributePaths = {"items", "items.activity", "items.activity.instruction"})
     Optional<DailyPlan> findByChildIdAndPlanDate(Long childId, LocalDate date);
 

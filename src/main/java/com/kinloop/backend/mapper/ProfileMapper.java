@@ -31,8 +31,7 @@ public class ProfileMapper {
                 profile.getFullName(),
                 profile.getPhone(),
                 profile.getCity(),
-                profile.getDistrict(),
-                profile.getDailyTimeBudgetMinutes());
+                profile.getDistrict());
     }
 
     public ChildProfileResponse toChildResponse(
@@ -48,6 +47,8 @@ public class ProfileMapper {
                 child.ageInMonths(today),
                 child.getGender(),
                 child.getPreferenceMode(),
+                child.getDailyTimeBudgetMin(),
+                child.getDailyTimeBudgetMax(),
                 child.getOnboardingCompletedAt(),
                 answers);
     }

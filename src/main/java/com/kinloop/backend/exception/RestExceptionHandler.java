@@ -85,11 +85,6 @@ public class RestExceptionHandler {
         return ResponseEntity.status(status).body(new ApiErrorResponse(ex.getMessage(), status.value(), details));
     }
 
-    @ExceptionHandler(MissingDailyTimeBudgetException.class)
-    public ResponseEntity<ApiErrorResponse> handleMissingDailyTimeBudget(MissingDailyTimeBudgetException ex) {
-        return error(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
-    }
-
     @ExceptionHandler(DailyPlanNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleDailyPlanNotFound(DailyPlanNotFoundException ex) {
         return error(HttpStatus.NOT_FOUND, ex.getMessage());

@@ -59,6 +59,15 @@ public class Child {
     @Column(name = "onboarding_completed_at")
     private OffsetDateTime onboardingCompletedAt;
 
+    @Column(name = "onboarding_closing_message_responded_at")
+    private OffsetDateTime onboardingClosingMessageRespondedAt;
+
+    @Column(name = "onboarding_closing_reminder_requested", nullable = false)
+    private boolean onboardingClosingReminderRequested;
+
+    @Column(name = "onboarding_closing_reminder_plan_baseline")
+    private Integer onboardingClosingReminderPlanBaseline;
+
     @Generated(event = EventType.INSERT)
     @Column(name = "created_at", insertable = false, updatable = false)
     private OffsetDateTime createdAt;

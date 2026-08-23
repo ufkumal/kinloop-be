@@ -37,9 +37,6 @@ public class ParentProfile {
     @Column
     private String district;
 
-    @Column(name = "daily_time_budget_minutes")
-    private Short dailyTimeBudgetMinutes;
-
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 }

@@ -11,6 +11,7 @@ import com.kinloop.backend.repository.QuestionOptionRepository;
 import com.kinloop.backend.repository.ChildAnswerRepository;
 import com.kinloop.backend.repository.ChildProfileSnapshotRepository;
 import com.kinloop.backend.repository.DailyPlanItemRepository;
+import com.kinloop.backend.repository.DailyPlanRepository;
 import java.lang.reflect.Proxy;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -88,6 +89,9 @@ class KinloopBackendApplicationTests {
 
         @Bean
         DailyPlanItemRepository dailyPlanItemRepository() { return repositoryProxy(DailyPlanItemRepository.class); }
+
+        @Bean
+        DailyPlanRepository dailyPlanRepository() { return repositoryProxy(DailyPlanRepository.class); }
 
         @Bean
         WorkshopProfileRepository workshopProfileRepository() {

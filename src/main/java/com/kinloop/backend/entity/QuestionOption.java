@@ -21,6 +21,7 @@ public class QuestionOption {
     @JdbcTypeCode(SqlTypes.SMALLINT) @Column(name = "separation_anxiety") private Integer separationAnxiety;
     @Enumerated(EnumType.STRING) @Column(name = "social_orientation") private SocialOrientation socialOrientation;
     @Enumerated(EnumType.STRING) @Column(name = "focus_band") private FocusBand focusBand;
-    @Column(name = "daily_time_budget_minutes") private Short dailyTimeBudgetMinutes;
+    @Column(name = "daily_time_budget_min") private Short dailyTimeBudgetMin;
+    @Column(name = "daily_time_budget_max") private Short dailyTimeBudgetMax;
     @JdbcTypeCode(SqlTypes.JSON) @Column(name = "gardner_priors", columnDefinition = "jsonb") private List<GardnerPrior> gardnerPriors;
 }
