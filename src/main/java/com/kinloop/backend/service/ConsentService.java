@@ -4,6 +4,7 @@ import com.kinloop.backend.dto.consent.ConsentResponse;
 import com.kinloop.backend.entity.ConsentDocument;
 import com.kinloop.backend.entity.User;
 import com.kinloop.backend.entity.UserConsent;
+import com.kinloop.backend.entity.enums.ConsentType;
 import com.kinloop.backend.repository.ConsentDocumentRepository;
 import com.kinloop.backend.repository.UserConsentRepository;
 import java.time.OffsetDateTime;
@@ -48,6 +49,14 @@ public class ConsentService {
         decision.setRevokedAt(granted ? null : now);
         decision.setUpdatedAt(now);
         return toResponse(document, userConsentRepository.save(decision));
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasGrantedConsent(Long userId, ConsentType type) {
+        return consentDocumentRepository.findFirstByTypeAndActiveTrue(type)
+                .map(document -> userConsentRepository
+                        .existsByUserIdAndConsentDocumentIdAndGrantedTrue(userId, document.getId()))
+                .orElse(false);
     }
 
     private ConsentResponse toResponse(ConsentDocument document, UserConsent decision) {

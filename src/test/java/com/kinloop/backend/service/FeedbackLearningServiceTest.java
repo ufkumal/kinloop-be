@@ -33,6 +33,7 @@ import com.kinloop.backend.repository.ChildIntelligenceScoreRepository;
 import com.kinloop.backend.repository.ChildProfileSnapshotRepository;
 import com.kinloop.backend.repository.DailyPlanItemRepository;
 import com.kinloop.backend.repository.DunnProfileRepository;
+import com.kinloop.backend.repository.ChildSensoryAdjustmentRepository;
 import com.kinloop.backend.repository.FeedbackEffectRepository;
 import com.kinloop.backend.repository.FeedbackRepository;
 import com.kinloop.backend.service.matching.MatchingParameters;
@@ -61,6 +62,8 @@ class FeedbackLearningServiceTest {
     @Mock private ChildIntelligenceScoreRepository intelligenceRepository;
     @Mock private ChildDomainLevelRepository domainRepository;
     @Mock private MatchingParameters matchingParameters;
+    @Mock private ChildSensoryAdjustmentRepository sensoryAdjustmentRepository;
+    @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
     @InjectMocks private FeedbackLearningService service;
 
     private final Child child = new Child();

@@ -25,3 +25,10 @@ app:
 jwt:
   secret: ${JWT_SECRET}
   expiration-ms: 86400000 # 24h
+
+llm:
+  enabled: ${LLM_ENABLED:false}
+  api-key: ${ANTHROPIC_API_KEY:}
+  model: ${LLM_MODEL:claude-haiku-4-5}
+  temperature: 0
+  max-tokens: 200

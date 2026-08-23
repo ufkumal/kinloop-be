@@ -9,6 +9,7 @@ import com.kinloop.backend.entity.ChildIntelligenceScore;
 import com.kinloop.backend.entity.ChildProfileSnapshot;
 import com.kinloop.backend.entity.DailyPlanItem;
 import com.kinloop.backend.entity.DunnProfile;
+import com.kinloop.backend.entity.ChildSensoryAdjustment;
 import com.kinloop.backend.entity.Feedback;
 import com.kinloop.backend.entity.FeedbackEffect;
 import com.kinloop.backend.entity.enums.DevelopmentDomain;
@@ -17,22 +18,27 @@ import com.kinloop.backend.entity.enums.DunnQuadrant;
 import com.kinloop.backend.entity.enums.FeedbackReason;
 import com.kinloop.backend.entity.enums.FeedbackType;
 import com.kinloop.backend.entity.enums.IntelligenceType;
+import com.kinloop.backend.entity.enums.InvolvementHint;
 import com.kinloop.backend.entity.enums.InvolvementType;
+import com.kinloop.backend.entity.enums.SensoryHint;
 import com.kinloop.backend.exception.DailyPlanItemNotFoundException;
 import com.kinloop.backend.exception.FeedbackAlreadySubmittedException;
 import com.kinloop.backend.repository.ChildDomainLevelRepository;
 import com.kinloop.backend.repository.ChildIntelligenceScoreRepository;
 import com.kinloop.backend.repository.ChildProfileSnapshotRepository;
+import com.kinloop.backend.repository.ChildSensoryAdjustmentRepository;
 import com.kinloop.backend.repository.DailyPlanItemRepository;
 import com.kinloop.backend.repository.DunnProfileRepository;
 import com.kinloop.backend.repository.FeedbackEffectRepository;
 import com.kinloop.backend.repository.FeedbackRepository;
+import com.kinloop.backend.service.llm.FeedbackSubmittedEvent;
 import com.kinloop.backend.service.matching.MatchingParameters;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,6 +53,8 @@ public class FeedbackLearningService {
     private final ChildIntelligenceScoreRepository intelligenceRepository;
     private final ChildDomainLevelRepository domainRepository;
     private final MatchingParameters matchingParameters;
+    private final ChildSensoryAdjustmentRepository sensoryAdjustmentRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public ActivityFeedbackResponse submit(
@@ -77,6 +85,10 @@ public class FeedbackLearningService {
                 child.getId(), item.getActivity().getTargetDomain());
         applyDomainLearning(domainLevel, item.getActivity(), request.feedbackType(), parameters);
         item.complete();
+
+        if (freeText != null) {
+            eventPublisher.publishEvent(new FeedbackSubmittedEvent(feedback.getId()));
+        }
 
         return new ActivityFeedbackResponse(
                 feedback.getId(), item.getId(), request.feedbackType(), reason,
@@ -185,6 +197,52 @@ public class FeedbackLearningService {
             case EASIER -> parameters.get("llm_difficulty_hint_easier_delta");
         };
         applyDomainDelta(requiredDomainLevel(childId, domain), delta, parameters);
+    }
+
+    /**
+     * Redirects the Gardner credit a button vote already applied to the activity's own
+     * target/secondary intelligence, onto the field(s) an LLM classification pointed to
+     * instead. Reverses the button's own effects first (reused, tested reverseEffects()),
+     * then re-applies applyGardnerLearning() with the LLM's fields as overrides, so the
+     * original credit is replaced rather than doubled (Fren 5).
+     */
+    @Transactional
+    public void reapplyGardnerLearningWithOverride(
+            Long feedbackId,
+            IntelligenceType targetOverride,
+            IntelligenceType secondaryOverride
+    ) {
+        Feedback feedback = feedbackRepository.findById(feedbackId)
+                .orElseThrow(() -> new IllegalStateException("Missing feedback: " + feedbackId));
+        reverseEffects(feedbackId);
+        Map<IntelligenceType, ChildIntelligenceScore> scores = intelligenceRepository
+                .findByChildId(feedback.getChildId())
+                .stream().collect(Collectors.toMap(
+                        ChildIntelligenceScore::getIntelligenceType, Function.identity()));
+        Map<String, BigDecimal> parameters = matchingParameters.load();
+        applyGardnerLearning(
+                feedback, feedback.getActivity(), feedback.getFeedbackType(), feedback.getResolvedReason(),
+                scores, parameters, targetOverride, secondaryOverride);
+    }
+
+    @Transactional
+    public void applySensoryHint(Long childId, SensoryHint hint) {
+        ChildSensoryAdjustment adjustment = requiredSensoryAdjustment(childId);
+        short step = matchingParameters.load().get("llm_sensory_tolerance_step").shortValueExact();
+        adjustment.applySensoryAdjustment(hint, step);
+        sensoryAdjustmentRepository.save(adjustment);
+    }
+
+    @Transactional
+    public void applyInvolvementHint(Long childId, InvolvementHint hint) {
+        ChildSensoryAdjustment adjustment = requiredSensoryAdjustment(childId);
+        adjustment.applyInvolvementFilter(hint);
+        sensoryAdjustmentRepository.save(adjustment);
+    }
+
+    private ChildSensoryAdjustment requiredSensoryAdjustment(Long childId) {
+        return sensoryAdjustmentRepository.findByChildId(childId)
+                .orElseGet(() -> new ChildSensoryAdjustment(childId, (short) 0, (short) 0, (short) 0, null));
     }
 
     private void applyDomainDelta(

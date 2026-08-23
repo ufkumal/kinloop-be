@@ -1,6 +1,8 @@
 package com.kinloop.backend.entity;
 
 import com.kinloop.backend.entity.enums.InvolvementFilter;
+import com.kinloop.backend.entity.enums.InvolvementHint;
+import com.kinloop.backend.entity.enums.SensoryHint;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -46,5 +48,25 @@ public class ChildSensoryAdjustment {
         this.visualAdjustment = visualAdjustment;
         this.movementAdjustment = movementAdjustment;
         this.involvementFilter = involvementFilter;
+    }
+
+    // "Tightens" means tolerance drops (adjustment goes more negative). Unbounded here by
+    // design: ActivityScorer.adjustedTolerance() already clamps tolerance + adjustment to
+    // 1-5 at read time, so no separate ceiling/floor is needed on the raw adjustment itself.
+    public void applySensoryAdjustment(SensoryHint hint, short step) {
+        switch (hint) {
+            case NOISE -> noiseAdjustment -= step;
+            case VISUAL -> visualAdjustment -= step;
+            case MOVEMENT -> movementAdjustment -= step;
+            case CROWDING -> {
+                noiseAdjustment -= step;
+                visualAdjustment -= step;
+            }
+        }
+    }
+
+    public void applyInvolvementFilter(InvolvementHint hint) {
+        involvementFilter = hint == InvolvementHint.TOGETHER
+                ? InvolvementFilter.STRICT : InvolvementFilter.RELAXED;
     }
 }

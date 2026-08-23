@@ -40,7 +40,7 @@ class FeedbackLearningServiceGardnerOverrideTest {
                     throw new UnsupportedOperationException(method.getName());
                 });
         service = new FeedbackLearningService(
-                null, null, effectRepository, null, null, null, null, null);
+                null, null, effectRepository, null, null, null, null, null, null, null);
 
         activity = new Activity();
         ReflectionTestUtils.setField(activity, "targetIntelligence", IntelligenceType.VERBAL_LINGUISTIC);
