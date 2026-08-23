@@ -1,6 +1,7 @@
 package com.kinloop.backend.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -19,6 +20,7 @@ import com.kinloop.backend.entity.DailyPlan;
 import com.kinloop.backend.entity.DailyPlanItem;
 import com.kinloop.backend.entity.DunnProfile;
 import com.kinloop.backend.entity.Feedback;
+import com.kinloop.backend.entity.FeedbackEffect;
 import com.kinloop.backend.entity.enums.DevelopmentDomain;
 import com.kinloop.backend.entity.enums.DunnQuadrant;
 import com.kinloop.backend.entity.enums.FeedbackReason;
@@ -167,6 +169,25 @@ class FeedbackLearningServiceTest {
         ArgumentCaptor<Feedback> captor = ArgumentCaptor.forClass(Feedback.class);
         verify(feedbackRepository).save(captor.capture());
         assertNull(captor.getValue().getFreeText());
+    }
+
+    @Test
+    void reversesLikedGardnerEffectsWithoutChangingTheDomainStreak() {
+        service.submit(child, 11L, new SubmitActivityFeedbackRequest(FeedbackType.LIKED, null));
+        ArgumentCaptor<FeedbackEffect> captor = ArgumentCaptor.forClass(FeedbackEffect.class);
+        verify(feedbackEffectRepository, org.mockito.Mockito.times(2)).save(captor.capture());
+        List<FeedbackEffect> effects = captor.getAllValues();
+        when(feedbackEffectRepository.findByFeedbackIdAndReversedAtIsNull(91L)).thenReturn(effects);
+
+        service.reverseEffects(91L);
+
+        assertEquals(0, new BigDecimal("3.00").compareTo(target.getScore()));
+        assertEquals(0, new BigDecimal("3.00").compareTo(secondary.getScore()));
+        assertEquals(0, new BigDecimal("1.0").compareTo(domainLevel.getStreak()));
+        effects.forEach(effect -> assertNotNull(effect.getReversedAt()));
+        var firstReversalTime = effects.getFirst().getReversedAt();
+        effects.getFirst().reverse();
+        assertEquals(firstReversalTime, effects.getFirst().getReversedAt());
     }
 
     private Activity activity(int difficulty, InvolvementType involvementType) {

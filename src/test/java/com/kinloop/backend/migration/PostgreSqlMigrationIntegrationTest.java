@@ -80,7 +80,7 @@ class PostgreSqlMigrationIntegrationTest {
     }
 
     @Test
-    void appliesEveryMigrationThroughV26() throws SQLException {
+    void appliesEveryMigrationThroughV27() throws SQLException {
         MigrationHistory history = queryOne("""
                 SELECT count(*) AS migration_count,
                        min(version::integer) AS first_version,
@@ -95,11 +95,21 @@ class PostgreSqlMigrationIntegrationTest {
                 result.getBoolean("all_successful")));
 
         assertAll(
-                () -> assertEquals(26, migrationsExecuted),
-                () -> assertEquals(26, history.migrationCount()),
+                () -> assertEquals(27, migrationsExecuted),
+                () -> assertEquals(27, history.migrationCount()),
                 () -> assertEquals(1, history.firstVersion()),
-                () -> assertEquals(26, history.lastVersion()),
+                () -> assertEquals(27, history.lastVersion()),
                 () -> assertTrue(history.allSuccessful()));
+    }
+
+    @Test
+    void feedbackEffectsHaveNullableReversalTimestamp() throws SQLException {
+        ColumnMetadata reversedAt = column("feedback_effects", "reversed_at");
+
+        assertAll(
+                () -> assertEquals("timestamp with time zone", reversedAt.dataType()),
+                () -> assertEquals("YES", reversedAt.nullable()),
+                () -> assertNull(reversedAt.columnDefault()));
     }
 
     @Test

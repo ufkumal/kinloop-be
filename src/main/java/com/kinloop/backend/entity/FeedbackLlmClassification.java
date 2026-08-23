@@ -59,6 +59,7 @@ public class FeedbackLlmClassification {
     private SituationHint situationHint;
     @Enumerated(EnumType.STRING)
     @Column(name = "duration_hint", length = 10)
+    // Stored for future use; plan generation does not consume duration hints yet.
     private DurationHint durationHint;
     @Column(nullable = false)
     private boolean conflict;

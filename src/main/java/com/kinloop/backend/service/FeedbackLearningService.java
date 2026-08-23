@@ -83,6 +83,25 @@ public class FeedbackLearningService {
                 domainLevel.getDomain(), domainLevel.getLevel(), domainLevel.getStreak());
     }
 
+    @Transactional
+    public void reverseEffects(Long feedbackId) {
+        var effects = feedbackEffectRepository.findByFeedbackIdAndReversedAtIsNull(feedbackId);
+        if (effects.isEmpty()) return;
+
+        Map<IntelligenceType, ChildIntelligenceScore> scores = intelligenceRepository
+                .findByChildId(effects.getFirst().getFeedback().getChildId())
+                .stream().collect(Collectors.toMap(
+                        ChildIntelligenceScore::getIntelligenceType, Function.identity()));
+        Map<String, BigDecimal> parameters = matchingParameters.load();
+        for (FeedbackEffect effect : effects) {
+            requiredScore(scores, effect.getIntelligenceType()).applyFeedback(
+                    effect.getDelta().negate(),
+                    parameters.get("gardner_runtime_min_score"),
+                    parameters.get("gardner_runtime_max_score"));
+            effect.reverse();
+        }
+    }
+
     private String normalizeFreeText(String freeText) {
         if (freeText == null) return null;
         String trimmed = freeText.trim();
