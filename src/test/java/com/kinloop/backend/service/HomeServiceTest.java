@@ -1,19 +1,27 @@
 package com.kinloop.backend.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.kinloop.backend.dto.home.HomeStatusResponse;
 import com.kinloop.backend.entity.Activity;
+import com.kinloop.backend.entity.ActivityInstruction;
 import com.kinloop.backend.entity.Child;
 import com.kinloop.backend.entity.DailyPlan;
 import com.kinloop.backend.entity.DailyPlanItem;
+import com.kinloop.backend.entity.Feedback;
+import com.kinloop.backend.entity.enums.FeedbackReason;
+import com.kinloop.backend.entity.enums.FeedbackType;
 import com.kinloop.backend.entity.enums.PlanSlotType;
 import com.kinloop.backend.repository.ChildRepository;
 import com.kinloop.backend.repository.DailyPlanItemRepository;
+import com.kinloop.backend.repository.FeedbackRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -32,13 +40,15 @@ class HomeServiceTest {
 
     @Mock private ChildRepository childRepository;
     @Mock private DailyPlanItemRepository dailyPlanItemRepository;
+    @Mock private FeedbackRepository feedbackRepository;
     @Mock private ChildService childService;
 
     private HomeService service;
 
     @BeforeEach
     void setUp() {
-        service = new HomeService(childRepository, dailyPlanItemRepository, childService);
+        service = new HomeService(
+                childRepository, dailyPlanItemRepository, feedbackRepository, childService);
     }
 
     @Test
@@ -86,7 +96,7 @@ class HomeServiceTest {
     }
 
     @Test
-    void returningUserReceivesCurrentChildAndLatestSelectedActivity() {
+    void selectedActivityWithoutFeedbackRequiresFeedback() {
         Child child = child(7L, 1L, "Ada");
         Activity activity = new Activity();
         ReflectionTestUtils.setField(activity, "id", 23L);
@@ -102,11 +112,13 @@ class HomeServiceTest {
         when(dailyPlanItemRepository.findLatestSelectedByParentId(any(Long.class), any(Pageable.class)))
                 .thenReturn(List.of(item));
         when(childRepository.findByIdAndParentIdAndDeletedAtIsNull(7L, 1L)).thenReturn(Optional.of(child));
+        when(feedbackRepository.findByChildIdAndDailyPlanItemId(7L, 41L))
+                .thenReturn(Optional.empty());
         when(childService.displayName(any(Child.class), any(Integer.class))).thenReturn("Ada");
 
         HomeStatusResponse response = service.getStatus(1L);
 
-        assertEquals("returning-user", response.state());
+        assertEquals("feedback-required", response.state());
         assertEquals(7L, response.childId());
         assertEquals("Ada", response.childName());
         assertNotNull(response.latestActivity());
@@ -114,6 +126,68 @@ class HomeServiceTest {
         assertEquals(23L, response.latestActivity().activityId());
         assertEquals("Animal Walk", response.latestActivity().title());
         assertNotNull(response.latestActivity().selectedAt());
+        assertFalse(response.shouldGenerateDailyPlan());
+    }
+
+    @Test
+    void completedActivityReturnsItsFeedbackAndLeadsToPlanGeneration() {
+        Child child = child(7L, 1L, "Ada");
+        Activity activity = new Activity();
+        ReflectionTestUtils.setField(activity, "id", 23L);
+        ReflectionTestUtils.setField(activity, "title", "Animal Walk");
+        ReflectionTestUtils.setField(activity, "description", "Move like an animal");
+        ReflectionTestUtils.setField(activity, "durationMinutes", (short) 10);
+        ActivityInstruction instruction = new ActivityInstruction();
+        ReflectionTestUtils.setField(instruction, "intro", "Choose an animal");
+        ReflectionTestUtils.setField(instruction, "purpose", "Practice movement");
+        ReflectionTestUtils.setField(activity, "instruction", instruction);
+        DailyPlan plan = new DailyPlan(child.getId(), LocalDate.now());
+        plan.add(activity, PlanSlotType.EXPLORE, BigDecimal.ONE);
+        plan.select(activity.getId());
+        DailyPlanItem item = plan.getItems().getFirst();
+        ReflectionTestUtils.setField(item, "id", 41L);
+        item.complete();
+        Feedback feedback = new Feedback(
+                child.getId(), item, FeedbackType.LIKED, FeedbackReason.INTEREST, "She loved it");
+        ReflectionTestUtils.setField(feedback, "id", 91L);
+        ReflectionTestUtils.setField(feedback, "createdAt", OffsetDateTime.now());
+
+        when(childRepository.existsByParentIdAndOnboardingCompletedAtIsNotNullAndDeletedAtIsNull(1L))
+                .thenReturn(true);
+        when(dailyPlanItemRepository.findLatestSelectedByParentId(any(Long.class), any(Pageable.class)))
+                .thenReturn(List.of(item));
+        when(childRepository.findByIdAndParentIdAndDeletedAtIsNull(7L, 1L)).thenReturn(Optional.of(child));
+        when(feedbackRepository.findByChildIdAndDailyPlanItemId(7L, 41L))
+                .thenReturn(Optional.of(feedback));
+        when(childService.displayName(any(Child.class), any(Integer.class))).thenReturn("Ada");
+
+        HomeStatusResponse response = service.getStatus(1L);
+
+        assertEquals("returning-user", response.state());
+        assertEquals("Choose an animal", response.latestActivity().intro());
+        assertEquals("Practice movement", response.latestActivity().purpose());
+        assertNotNull(response.latestActivity().completedAt());
+        assertTrue(response.latestActivity().feedbackSubmitted());
+        assertEquals(FeedbackType.LIKED, response.latestActivity().feedback().feedbackType());
+        assertEquals(FeedbackReason.INTEREST, response.latestActivity().feedback().resolvedReason());
+        assertEquals("She loved it", response.latestActivity().feedback().freeText());
+        assertTrue(response.shouldGenerateDailyPlan());
+    }
+
+    @Test
+    void noSelectedActivityLeadsToPlanGeneration() {
+        Child child = child(7L, 1L, "Ada");
+        when(childRepository.existsByParentIdAndOnboardingCompletedAtIsNotNullAndDeletedAtIsNull(1L))
+                .thenReturn(true);
+        when(childRepository.findByParentIdAndDeletedAtIsNullOrderByIdAsc(1L))
+                .thenReturn(List.of(child));
+        when(childService.displayName(any(Child.class), any(Integer.class))).thenReturn("Ada");
+
+        HomeStatusResponse response = service.getStatus(1L);
+
+        assertEquals("returning-user", response.state());
+        assertNull(response.latestActivity());
+        assertTrue(response.shouldGenerateDailyPlan());
     }
 
     private Child child(Long id, Long parentId, String fullName) {
