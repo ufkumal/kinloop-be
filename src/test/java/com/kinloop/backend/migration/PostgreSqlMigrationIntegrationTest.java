@@ -80,7 +80,7 @@ class PostgreSqlMigrationIntegrationTest {
     }
 
     @Test
-    void appliesEveryMigrationThroughV23() throws SQLException {
+    void appliesEveryMigrationThroughV24() throws SQLException {
         MigrationHistory history = queryOne("""
                 SELECT count(*) AS migration_count,
                        min(version::integer) AS first_version,
@@ -95,10 +95,10 @@ class PostgreSqlMigrationIntegrationTest {
                 result.getBoolean("all_successful")));
 
         assertAll(
-                () -> assertEquals(23, migrationsExecuted),
-                () -> assertEquals(23, history.migrationCount()),
+                () -> assertEquals(24, migrationsExecuted),
+                () -> assertEquals(24, history.migrationCount()),
                 () -> assertEquals(1, history.firstVersion()),
-                () -> assertEquals(23, history.lastVersion()),
+                () -> assertEquals(24, history.lastVersion()),
                 () -> assertTrue(history.allSuccessful()));
     }
 
@@ -110,6 +110,44 @@ class PostgreSqlMigrationIntegrationTest {
                 () -> assertEquals("text", freeText.dataType()),
                 () -> assertEquals("YES", freeText.nullable()),
                 () -> assertNull(freeText.columnDefault()));
+    }
+
+    @Test
+    void createsFeedbackLlmClassificationStorage() throws SQLException {
+        Map<String, ColumnMetadata> columns = columns(
+                "feedback_llm_classifications",
+                "feedback_id", "applied", "confidence", "target_correction", "secondary_hint",
+                "sensory_hint", "involvement_hint", "difficulty_hint", "situation_hint",
+                "duration_hint", "conflict", "raw_response", "created_at");
+        ColumnMetadata confidence = columns.get("confidence");
+
+        assertAll(
+                () -> assertEquals("bigint", columns.get("feedback_id").dataType()),
+                () -> assertRequiredColumn(columns, "applied", "boolean", "false"),
+                () -> assertEquals("numeric", confidence.dataType()),
+                () -> assertEquals(3, confidence.numericPrecision()),
+                () -> assertEquals(2, confidence.numericScale()),
+                () -> assertEquals("YES", confidence.nullable()),
+                () -> assertEquals("character varying", columns.get("target_correction").dataType()),
+                () -> assertEquals("character varying", columns.get("secondary_hint").dataType()),
+                () -> assertEquals("character varying", columns.get("sensory_hint").dataType()),
+                () -> assertEquals("character varying", columns.get("involvement_hint").dataType()),
+                () -> assertEquals("character varying", columns.get("difficulty_hint").dataType()),
+                () -> assertEquals("character varying", columns.get("situation_hint").dataType()),
+                () -> assertEquals("character varying", columns.get("duration_hint").dataType()),
+                () -> assertRequiredColumn(columns, "conflict", "boolean", "false"),
+                () -> assertEquals("text", columns.get("raw_response").dataType()),
+                () -> assertRequiredColumn(columns, "created_at", "timestamp with time zone", "now()"),
+                () -> assertTrue(constraint("feedback_llm_classifications",
+                        "chk_feedback_llm_sensory_hint").contains("CROWDING")),
+                () -> assertTrue(constraint("feedback_llm_classifications",
+                        "chk_feedback_llm_involvement_hint").contains("TOGETHER")),
+                () -> assertTrue(constraint("feedback_llm_classifications",
+                        "chk_feedback_llm_difficulty_hint").contains("HARDER")),
+                () -> assertTrue(constraint("feedback_llm_classifications",
+                        "chk_feedback_llm_situation_hint").contains("TRANSIENT")),
+                () -> assertTrue(constraint("feedback_llm_classifications",
+                        "chk_feedback_llm_duration_hint").contains("SHORT")));
     }
 
     @Test

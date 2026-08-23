@@ -98,12 +98,29 @@ public class FeedbackLearningService {
             Map<IntelligenceType, ChildIntelligenceScore> scores,
             Map<String, BigDecimal> parameters
     ) {
-        ChildIntelligenceScore target = requiredScore(scores, activity.getTargetIntelligence());
+        applyGardnerLearning(feedback, activity, type, reason, scores, parameters, null, null);
+    }
+
+    void applyGardnerLearning(
+            Feedback feedback,
+            Activity activity,
+            FeedbackType type,
+            FeedbackReason reason,
+            Map<IntelligenceType, ChildIntelligenceScore> scores,
+            Map<String, BigDecimal> parameters,
+            IntelligenceType targetOverride,
+            IntelligenceType secondaryOverride
+    ) {
+        IntelligenceType targetType = targetOverride != null
+                ? targetOverride : activity.getTargetIntelligence();
+        IntelligenceType secondaryType = secondaryOverride != null
+                ? secondaryOverride : activity.getSecondaryIntelligence();
+        ChildIntelligenceScore target = requiredScore(scores, targetType);
         target.recordFeedbackSample();
         if (type == FeedbackType.LIKED) {
             applyDelta(feedback, target, parameters.get("liked_target_delta"), parameters);
-            if (activity.getSecondaryIntelligence() != null) {
-                applyDelta(feedback, requiredScore(scores, activity.getSecondaryIntelligence()),
+            if (secondaryType != null) {
+                applyDelta(feedback, requiredScore(scores, secondaryType),
                         parameters.get("liked_secondary_delta"), parameters);
             }
         } else if (type == FeedbackType.DISLIKED && reason == FeedbackReason.INTEREST) {
