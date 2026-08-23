@@ -9,13 +9,13 @@ import static org.mockito.Mockito.when;
 
 import com.kinloop.backend.dto.child.CreateChildRequest;
 import com.kinloop.backend.dto.child.SessionSummaryResponse;
+import com.kinloop.backend.dto.onboarding.DailyTimeBudgetRange;
 import com.kinloop.backend.entity.Child;
 import com.kinloop.backend.entity.ParentProfile;
 import com.kinloop.backend.entity.QuestionnaireSession;
 import com.kinloop.backend.entity.enums.Gender;
 import com.kinloop.backend.entity.enums.SessionStatus;
 import com.kinloop.backend.entity.enums.TriggerReason;
-import com.kinloop.backend.exception.MissingDailyTimeBudgetException;
 import com.kinloop.backend.repository.ChildRepository;
 import com.kinloop.backend.repository.ParentProfileRepository;
 import java.time.LocalDate;
@@ -42,10 +42,11 @@ class ChildServiceTest {
     }
 
     @Test
-    void firstChildStoresRequiredDailyTimeBudgetOnParent() {
-        ParentProfile parent = parent(null);
+    void childStoresItsOwnRequiredDailyTimeBudgetRange() {
+        ParentProfile parent = parent();
         when(parentProfileRepository.findById(1L)).thenReturn(Optional.of(parent));
-        when(onboardingService.resolveDailyTimeBudget("B")).thenReturn((short) 20);
+        when(onboardingService.resolveDailyTimeBudget("B", 18))
+                .thenReturn(new DailyTimeBudgetRange((short) 25, (short) 35));
         when(childRepository.save(any(Child.class))).thenAnswer(invocation -> {
             Child child = invocation.getArgument(0);
             child.setId(2L);
@@ -58,25 +59,33 @@ class ChildServiceTest {
 
         service.createChild(1L, new CreateChildRequest("Ada", LocalDate.now().minusMonths(18), Gender.FEMALE, "B"));
 
-        assertEquals(Short.valueOf((short) 20), parent.getDailyTimeBudgetMinutes());
-        verify(parentProfileRepository).save(parent);
+        org.mockito.ArgumentCaptor<Child> childCaptor = org.mockito.ArgumentCaptor.forClass(Child.class);
+        verify(childRepository).save(childCaptor.capture());
+        assertEquals((short) 25, childCaptor.getValue().getDailyTimeBudgetMin());
+        assertEquals((short) 35, childCaptor.getValue().getDailyTimeBudgetMax());
+        verify(parentProfileRepository, never()).save(any());
     }
 
     @Test
-    void childCreationFailsBeforeWritingWhenParentHasNoBudgetAnswer() {
-        ParentProfile parent = parent(null);
+    void childCreationFailsBeforeWritingWhenBudgetOptionIsInvalidForAge() {
+        ParentProfile parent = parent();
         when(parentProfileRepository.findById(1L)).thenReturn(Optional.of(parent));
+        when(onboardingService.resolveDailyTimeBudget("C", 18))
+                .thenThrow(new com.kinloop.backend.exception.InvalidOptionException("C"));
 
-        assertThrows(MissingDailyTimeBudgetException.class,
-                () -> service.createChild(1L, new CreateChildRequest("Ada", LocalDate.now().minusMonths(18), Gender.FEMALE, null)));
+        assertThrows(com.kinloop.backend.exception.InvalidOptionException.class,
+                () -> service.createChild(1L, new CreateChildRequest(
+                        "Ada", LocalDate.now().minusMonths(18), Gender.FEMALE, "C")));
 
         verify(childRepository, never()).save(any());
     }
 
     @Test
-    void subsequentChildKeepsExistingParentBudget() {
-        ParentProfile parent = parent((short) 10);
+    void siblingsCanReceiveDifferentBudgets() {
+        ParentProfile parent = parent();
         when(parentProfileRepository.findById(1L)).thenReturn(Optional.of(parent));
+        when(onboardingService.resolveDailyTimeBudget("A", 18))
+                .thenReturn(new DailyTimeBudgetRange((short) 15, (short) 25));
         when(childRepository.save(any(Child.class))).thenAnswer(invocation -> {
             Child child = invocation.getArgument(0);
             child.setId(3L);
@@ -87,16 +96,18 @@ class ChildServiceTest {
         when(questionnaireSessionService.summarise(session, 0))
                 .thenReturn(new SessionSummaryResponse(null, SessionStatus.IN_PROGRESS, TriggerReason.INITIAL, 3, 0, "Q2"));
 
-        service.createChild(1L, new CreateChildRequest("Ece", LocalDate.now().minusMonths(18), Gender.FEMALE, null));
+        service.createChild(1L, new CreateChildRequest("Ece", LocalDate.now().minusMonths(18), Gender.FEMALE, "A"));
 
-        assertEquals(Short.valueOf((short) 10), parent.getDailyTimeBudgetMinutes());
+        org.mockito.ArgumentCaptor<Child> childCaptor = org.mockito.ArgumentCaptor.forClass(Child.class);
+        verify(childRepository).save(childCaptor.capture());
+        assertEquals((short) 15, childCaptor.getValue().getDailyTimeBudgetMin());
+        assertEquals((short) 25, childCaptor.getValue().getDailyTimeBudgetMax());
         verify(parentProfileRepository, never()).save(any());
     }
 
-    private ParentProfile parent(Short budget) {
+    private ParentProfile parent() {
         ParentProfile parent = new ParentProfile();
         parent.setId(1L);
-        parent.setDailyTimeBudgetMinutes(budget);
         return parent;
     }
 }

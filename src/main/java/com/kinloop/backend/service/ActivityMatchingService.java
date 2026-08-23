@@ -42,13 +42,14 @@ public class ActivityMatchingService {
     private final ActivityScorer scorer;
     private final CandidateOrdering candidateOrdering;
     private final DailyPortfolioBuilder portfolioBuilder;
+    private final OnboardingService onboardingService;
 
     @Transactional
     public DailyPlanResponse today(Child requestedChild) {
         Child child = childRepository.findLockedById(requestedChild.getId()).orElseThrow();
         LocalDate today = LocalDate.now();
         Optional<DailyPlan> existing = planRepository.findByChildIdAndPlanDate(child.getId(), today);
-        if (existing.isPresent()) return response(existing.get());
+        if (existing.isPresent()) return response(existing.get(), child);
 
         ChildProfileSnapshot profile = profileRepository.findByChildIdAndCurrentTrue(child.getId())
                 .orElseThrow(() -> new IllegalStateException("Child onboarding profile is missing"));
@@ -110,7 +111,7 @@ public class ActivityMatchingService {
             plan.add(match.activity(), selected.slot(), match.rawScore(),
                     selected.withinBudget(), selected.repeatNotice());
         }
-        return response(planRepository.save(plan));
+        return response(planRepository.save(plan), child);
     }
 
     @Transactional
@@ -118,10 +119,10 @@ public class ActivityMatchingService {
         DailyPlan plan = planRepository.findByChildIdAndPlanDate(child.getId(), LocalDate.now())
                 .orElseThrow(() -> new DailyPlanNotFoundException(child.getId()));
         plan.select(activityId);
-        return response(planRepository.save(plan));
+        return response(planRepository.save(plan), child);
     }
 
-    private DailyPlanResponse response(DailyPlan plan) {
+    private DailyPlanResponse response(DailyPlan plan, Child child) {
         List<DailyActivityResponse> items = plan.getItems().stream().sorted(Comparator.comparingInt(x -> x.getSlotType().ordinal())).map(this::response).toList();
         return new DailyPlanResponse(
                 plan.getId(),
@@ -136,7 +137,9 @@ public class ActivityMatchingService {
                 plan.getFallbackLevel() == 4 ? "EMPTY_POOL" : "READY",
                 plan.getFallbackLevel() == 4
                         ? "Bugün çocuğunuza uygun bir etkinlik planı oluşturamadık. Lütfen daha sonra tekrar deneyin."
-                        : null
+                        : null,
+                onboardingService.shouldShowPlanReminder(
+                        child, planRepository.countByChildId(child.getId()))
         );
     }
 

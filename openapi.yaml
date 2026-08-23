@@ -11,6 +11,14 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    ChildId:
+      name: childId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
   schemas:
     UserRole:
       type: string
@@ -171,7 +179,127 @@ components:
           $ref: '#/components/schemas/Gender'
         dailyTimeBudgetOptionCode:
           type: string
-      required: [birthDate]
+      required: [birthDate, dailyTimeBudgetOptionCode]
+
+    DailyTimeBudgetOptionResponse:
+      type: object
+      required: [code, label, displayOrder, minMinutes, maxMinutes]
+      properties:
+        code:
+          type: string
+          enum: [A, B, C]
+        label:
+          type: string
+        displayOrder:
+          type: integer
+        minMinutes:
+          type: integer
+        maxMinutes:
+          type: integer
+
+    DailyTimeBudgetProfileResponse:
+      type: object
+      required: [questionCode, question, selectedOptionCode, minMinutes, maxMinutes, options]
+      properties:
+        questionCode:
+          type: string
+        question:
+          type: string
+        selectedOptionCode:
+          type: string
+          enum: [A, B, C]
+        minMinutes:
+          type: integer
+        maxMinutes:
+          type: integer
+        options:
+          type: array
+          description: A/B below 24 months; A/B/C from 24 months.
+          items:
+            $ref: '#/components/schemas/DailyTimeBudgetOptionResponse'
+
+    UpdateDailyTimeBudgetRequest:
+      type: object
+      required: [optionCode]
+      properties:
+        optionCode:
+          type: string
+          enum: [A, B, C]
+
+    DailyTimeBudgetResponse:
+      type: object
+      required: [answeredOptionCode, minMinutes, maxMinutes]
+      properties:
+        answeredOptionCode:
+          type: string
+          enum: [A, B, C]
+        minMinutes:
+          type: integer
+        maxMinutes:
+          type: integer
+
+    OnboardingClosingAction:
+      type: string
+      enum: [START, REMIND_LATER]
+
+    UpdateOnboardingClosingMessageRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          $ref: '#/components/schemas/OnboardingClosingAction'
+
+    OnboardingClosingMessageResponse:
+      type: object
+      required: [shouldDisplay, planReminderEnabled, reminderPlansRemaining]
+      properties:
+        shouldDisplay:
+          type: boolean
+          description: True after questionnaire completion until the first response.
+        planReminderEnabled:
+          type: boolean
+          description: True while REMIND_LATER covers one of the next three generated plans.
+        reminderPlansRemaining:
+          type: integer
+          minimum: 0
+          maximum: 3
+
+    DailyPlanResponse:
+      type: object
+      required: [planId, childId, planDate, budgetMin, budgetMax, committedDurationMinutes,
+                 totalDurationMinutes, fallbackLevel, activities, state, showOnboardingReminder]
+      properties:
+        planId:
+          type: integer
+          format: int64
+        childId:
+          type: integer
+          format: int64
+        planDate:
+          type: string
+          format: date
+        budgetMin:
+          type: integer
+        budgetMax:
+          type: integer
+        committedDurationMinutes:
+          type: integer
+        totalDurationMinutes:
+          type: integer
+        fallbackLevel:
+          type: integer
+        activities:
+          type: array
+          items:
+            type: object
+        state:
+          type: string
+        message:
+          type: string
+          nullable: true
+        showOnboardingReminder:
+          type: boolean
+          description: True only for the first three plans generated after REMIND_LATER.
 
     SessionSummaryResponse:
       type: object
@@ -431,6 +559,90 @@ paths:
               schema:
                 $ref: '#/components/schemas/IdentityQuestionsResponse'
 
+  /api/children/{childId}/onboarding/daily-time-budget:
+    get:
+      summary: Get a child's budget range and age-appropriate choices
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChildId'
+      responses:
+        '200':
+          description: Child budget and available choices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyTimeBudgetProfileResponse'
+    put:
+      summary: Set a child's budget during creation follow-up or re-onboarding
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChildId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDailyTimeBudgetRequest'
+      responses:
+        '200':
+          description: Updated child budget range
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyTimeBudgetResponse'
+        '400':
+          description: Unknown choice, or C selected below 24 months
+
+  /api/children/{childId}/onboarding/closing-message:
+    get:
+      summary: Get the one-time closing-message and reminder state
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChildId'
+      responses:
+        '200':
+          description: Current closing-message state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingClosingMessageResponse'
+    put:
+      summary: Record START or REMIND_LATER; the first response wins idempotently
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChildId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOnboardingClosingMessageRequest'
+      responses:
+        '200':
+          description: Updated closing-message state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingClosingMessageResponse'
+
+  /api/children/{childId}/daily-plan/today:
+    get:
+      summary: Get or generate today's persisted plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChildId'
+      responses:
+        '200':
+          description: Today's plan, including the first-three-plan onboarding reminder flag
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyPlanResponse'
   /api/children/{childId}/questionnaire/current:
     get:
       summary: Get current questionnaire for a child

@@ -56,7 +56,7 @@ class DailyPlanControllerTest {
         );
         DailyPlanResponse response = new DailyPlanResponse(
                 7L, 9L, LocalDate.of(2026, 8, 22), 25, 35, 24, 36, (short) 2,
-                List.of(activity), "READY", null
+                List.of(activity), "READY", null, true
         );
         when(currentParentProfileService.currentParentProfileId(any())).thenReturn(5L);
         when(childService.getOwnedChild(9L, 5L)).thenReturn(new Child());
@@ -71,6 +71,7 @@ class DailyPlanControllerTest {
                 .andExpect(jsonPath("$.totalDurationMinutes").value(36))
                 .andExpect(jsonPath("$.fallbackLevel").value(2))
                 .andExpect(jsonPath("$.state").value("READY"))
+                .andExpect(jsonPath("$.showOnboardingReminder").value(true))
                 .andExpect(jsonPath("$.activities[0].withinBudget").value(false))
                 .andExpect(jsonPath("$.activities[0].repeatNotice").value(true));
     }

@@ -6,7 +6,8 @@ public record DailyTimeBudgetProfileResponse(
         String questionCode,
         String question,
         String selectedOptionCode,
-        Short dailyTimeBudgetMinutes,
+        short minMinutes,
+        short maxMinutes,
         List<DailyTimeBudgetOptionResponse> options
 ) {
 }

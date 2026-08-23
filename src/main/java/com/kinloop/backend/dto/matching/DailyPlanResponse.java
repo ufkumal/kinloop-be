@@ -16,6 +16,7 @@ public record DailyPlanResponse(
         short fallbackLevel,
         List<DailyActivityResponse> activities,
         String state,
-        String message
+        String message,
+        boolean showOnboardingReminder
 ) {
 }

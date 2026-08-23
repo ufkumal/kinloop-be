@@ -54,6 +54,7 @@ class ActivityMatchingServiceTest {
     @Mock private ActivityScorer scorer;
     @Mock private CandidateOrdering candidateOrdering;
     @Mock private DailyPortfolioBuilder portfolioBuilder;
+    @Mock private OnboardingService onboardingService;
     @InjectMocks private ActivityMatchingService service;
 
     @Test

@@ -59,7 +59,6 @@ class ProfileServiceTest {
         ParentProfile parent = new ParentProfile();
         parent.setId(10L);
         parent.setUserId(20L);
-        parent.setDailyTimeBudgetMinutes((short) 20);
         User user = new User();
         user.setId(20L);
         user.setEmail("parent@example.com");
@@ -84,9 +83,10 @@ class ProfileServiceTest {
         ProfileResponse response = service.getProfile(10L);
 
         assertEquals("parent@example.com", response.parent().email());
-        assertEquals((short) 20, response.parent().dailyTimeBudgetMinutes());
         assertEquals(2, response.children().size());
         assertEquals("Deniz", response.children().getFirst().displayName());
+        assertEquals((short) 25, response.children().getFirst().dailyTimeBudgetMin());
+        assertEquals((short) 35, response.children().getFirst().dailyTimeBudgetMax());
         assertEquals(1, response.children().getFirst().onboardingAnswers().size());
         assertEquals("3", response.children().getFirst().onboardingAnswers().getFirst().optionCode());
         assertEquals("Hareket ve müzik", response.children().getFirst().onboardingAnswers().getFirst().displayValue());

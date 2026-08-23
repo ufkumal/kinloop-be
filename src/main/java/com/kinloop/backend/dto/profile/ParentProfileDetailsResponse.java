@@ -6,7 +6,6 @@ public record ParentProfileDetailsResponse(
         String fullName,
         String phone,
         String city,
-        String district,
-        Short dailyTimeBudgetMinutes
+        String district
 ) {
 }

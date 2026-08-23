@@ -14,6 +14,8 @@ public record ChildProfileResponse(
         int ageMonths,
         Gender gender,
         PreferenceMode preferenceMode,
+        short dailyTimeBudgetMin,
+        short dailyTimeBudgetMax,
         OffsetDateTime onboardingCompletedAt,
         List<ProfileAnswerResponse> onboardingAnswers
 ) {

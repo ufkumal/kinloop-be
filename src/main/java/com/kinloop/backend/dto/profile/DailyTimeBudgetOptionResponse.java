@@ -4,6 +4,7 @@ public record DailyTimeBudgetOptionResponse(
         String code,
         String label,
         int displayOrder,
-        Short minutes
+        short minMinutes,
+        short maxMinutes
 ) {
 }

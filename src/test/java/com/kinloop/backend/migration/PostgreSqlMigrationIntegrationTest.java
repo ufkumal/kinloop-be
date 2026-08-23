@@ -80,7 +80,7 @@ class PostgreSqlMigrationIntegrationTest {
     }
 
     @Test
-    void appliesEveryMigrationThroughV28() throws SQLException {
+    void appliesEveryMigrationThroughV31() throws SQLException {
         MigrationHistory history = queryOne("""
                 SELECT count(*) AS migration_count,
                        min(version::integer) AS first_version,
@@ -95,11 +95,50 @@ class PostgreSqlMigrationIntegrationTest {
                 result.getBoolean("all_successful")));
 
         assertAll(
-                () -> assertEquals(28, migrationsExecuted),
-                () -> assertEquals(28, history.migrationCount()),
+                () -> assertEquals(31, migrationsExecuted),
+                () -> assertEquals(31, history.migrationCount()),
                 () -> assertEquals(1, history.firstVersion()),
-                () -> assertEquals(28, history.lastVersion()),
+                () -> assertEquals(31, history.lastVersion()),
                 () -> assertTrue(history.allSuccessful()));
+    }
+
+    @Test
+    void movesBudgetMappingsToRangesAndAddsClosingMessageState() throws SQLException {
+        Map<String, ColumnMetadata> optionColumns = columns(
+                "question_options", "daily_time_budget_min", "daily_time_budget_max");
+        Map<String, ColumnMetadata> childColumns = columns(
+                "children", "onboarding_closing_message_responded_at",
+                "onboarding_closing_reminder_requested",
+                "onboarding_closing_reminder_plan_baseline");
+        int householdBudgetColumns = queryInt("""
+                SELECT count(*)
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'parent_profiles'
+                  AND column_name = 'daily_time_budget_minutes'
+                """);
+        int validRanges = queryInt("""
+                SELECT count(*)
+                FROM question_options qo
+                JOIN questions q ON q.id = qo.question_id
+                WHERE q.code = 'Q7'
+                  AND (qo.daily_time_budget_min, qo.daily_time_budget_max)
+                      IN ((15,25), (25,35), (35,45))
+                """);
+
+        assertAll(
+                () -> assertEquals(0, householdBudgetColumns),
+                () -> assertEquals(3, validRanges),
+                () -> assertEquals("smallint", optionColumns.get("daily_time_budget_min").dataType()),
+                () -> assertEquals("smallint", optionColumns.get("daily_time_budget_max").dataType()),
+                () -> assertEquals("timestamp with time zone",
+                        childColumns.get("onboarding_closing_message_responded_at").dataType()),
+                () -> assertRequiredColumn(childColumns,
+                        "onboarding_closing_reminder_requested", "boolean", "false"),
+                () -> assertEquals("integer",
+                        childColumns.get("onboarding_closing_reminder_plan_baseline").dataType()),
+                () -> assertEquals("YES",
+                        childColumns.get("onboarding_closing_reminder_plan_baseline").nullable()));
     }
 
     @Test
