@@ -11,6 +11,8 @@ import com.kinloop.backend.entity.DailyPlanItem;
 import com.kinloop.backend.entity.DunnProfile;
 import com.kinloop.backend.entity.Feedback;
 import com.kinloop.backend.entity.FeedbackEffect;
+import com.kinloop.backend.entity.enums.DevelopmentDomain;
+import com.kinloop.backend.entity.enums.DifficultyHint;
 import com.kinloop.backend.entity.enums.DunnQuadrant;
 import com.kinloop.backend.entity.enums.FeedbackReason;
 import com.kinloop.backend.entity.enums.FeedbackType;
@@ -63,24 +65,47 @@ public class FeedbackLearningService {
         ChildProfileSnapshot profile = profileRepository.findByChildIdAndCurrentTrue(child.getId())
                 .orElseThrow(() -> new IllegalStateException("Child onboarding profile is missing"));
         FeedbackReason reason = resolveReason(request.feedbackType(), item.getActivity(), profile, parameters);
+        String freeText = normalizeFreeText(request.freeText());
         Feedback feedback = feedbackRepository.save(
-                new Feedback(child.getId(), item, request.feedbackType(), reason));
+                new Feedback(child.getId(), item, request.feedbackType(), reason, freeText));
 
         Map<IntelligenceType, ChildIntelligenceScore> scores = intelligenceRepository.findByChildId(child.getId())
                 .stream().collect(Collectors.toMap(ChildIntelligenceScore::getIntelligenceType, Function.identity()));
         applyGardnerLearning(feedback, item.getActivity(), request.feedbackType(), reason, scores, parameters);
 
-        ChildDomainLevel domainLevel = domainRepository.findByChildId(child.getId()).stream()
-                .filter(value -> value.getDomain() == item.getActivity().getTargetDomain())
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "Missing domain level: " + item.getActivity().getTargetDomain()));
+        ChildDomainLevel domainLevel = requiredDomainLevel(
+                child.getId(), item.getActivity().getTargetDomain());
         applyDomainLearning(domainLevel, item.getActivity(), request.feedbackType(), parameters);
         item.complete();
 
         return new ActivityFeedbackResponse(
                 feedback.getId(), item.getId(), request.feedbackType(), reason,
                 domainLevel.getDomain(), domainLevel.getLevel(), domainLevel.getStreak());
+    }
+
+    @Transactional
+    public void reverseEffects(Long feedbackId) {
+        var effects = feedbackEffectRepository.findByFeedbackIdAndReversedAtIsNull(feedbackId);
+        if (effects.isEmpty()) return;
+
+        Map<IntelligenceType, ChildIntelligenceScore> scores = intelligenceRepository
+                .findByChildId(effects.getFirst().getFeedback().getChildId())
+                .stream().collect(Collectors.toMap(
+                        ChildIntelligenceScore::getIntelligenceType, Function.identity()));
+        Map<String, BigDecimal> parameters = matchingParameters.load();
+        for (FeedbackEffect effect : effects) {
+            requiredScore(scores, effect.getIntelligenceType()).applyFeedback(
+                    effect.getDelta().negate(),
+                    parameters.get("gardner_runtime_min_score"),
+                    parameters.get("gardner_runtime_max_score"));
+            effect.reverse();
+        }
+    }
+
+    private String normalizeFreeText(String freeText) {
+        if (freeText == null) return null;
+        String trimmed = freeText.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private void applyGardnerLearning(
@@ -91,12 +116,29 @@ public class FeedbackLearningService {
             Map<IntelligenceType, ChildIntelligenceScore> scores,
             Map<String, BigDecimal> parameters
     ) {
-        ChildIntelligenceScore target = requiredScore(scores, activity.getTargetIntelligence());
+        applyGardnerLearning(feedback, activity, type, reason, scores, parameters, null, null);
+    }
+
+    void applyGardnerLearning(
+            Feedback feedback,
+            Activity activity,
+            FeedbackType type,
+            FeedbackReason reason,
+            Map<IntelligenceType, ChildIntelligenceScore> scores,
+            Map<String, BigDecimal> parameters,
+            IntelligenceType targetOverride,
+            IntelligenceType secondaryOverride
+    ) {
+        IntelligenceType targetType = targetOverride != null
+                ? targetOverride : activity.getTargetIntelligence();
+        IntelligenceType secondaryType = secondaryOverride != null
+                ? secondaryOverride : activity.getSecondaryIntelligence();
+        ChildIntelligenceScore target = requiredScore(scores, targetType);
         target.recordFeedbackSample();
         if (type == FeedbackType.LIKED) {
             applyDelta(feedback, target, parameters.get("liked_target_delta"), parameters);
-            if (activity.getSecondaryIntelligence() != null) {
-                applyDelta(feedback, requiredScore(scores, activity.getSecondaryIntelligence()),
+            if (secondaryType != null) {
+                applyDelta(feedback, requiredScore(scores, secondaryType),
                         parameters.get("liked_secondary_delta"), parameters);
             }
         } else if (type == FeedbackType.DISLIKED && reason == FeedbackReason.INTEREST) {
@@ -128,6 +170,28 @@ public class FeedbackLearningService {
     ) {
         BigDecimal delta = domainDelta(domainLevel.getLevel(), activity.getDifficulty(), type, parameters);
         if (delta.signum() == 0) return;
+        applyDomainDelta(domainLevel, delta, parameters);
+    }
+
+    @Transactional
+    public void applyDifficultyHint(
+            Long childId,
+            DevelopmentDomain domain,
+            DifficultyHint hint
+    ) {
+        Map<String, BigDecimal> parameters = matchingParameters.load();
+        BigDecimal delta = switch (hint) {
+            case HARDER -> parameters.get("llm_difficulty_hint_harder_delta");
+            case EASIER -> parameters.get("llm_difficulty_hint_easier_delta");
+        };
+        applyDomainDelta(requiredDomainLevel(childId, domain), delta, parameters);
+    }
+
+    private void applyDomainDelta(
+            ChildDomainLevel domainLevel,
+            BigDecimal delta,
+            Map<String, BigDecimal> parameters
+    ) {
         domainLevel.applyFeedback(
                 delta,
                 parameters.get("level_up_threshold"),
@@ -135,6 +199,13 @@ public class FeedbackLearningService {
                 parameters.get("level_min").shortValueExact(),
                 parameters.get("level_max").shortValueExact(),
                 parameters.get("ceiling_counter_cap"));
+    }
+
+    private ChildDomainLevel requiredDomainLevel(Long childId, DevelopmentDomain domain) {
+        return domainRepository.findByChildId(childId).stream()
+                .filter(value -> value.getDomain() == domain)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Missing domain level: " + domain));
     }
 
     private BigDecimal domainDelta(

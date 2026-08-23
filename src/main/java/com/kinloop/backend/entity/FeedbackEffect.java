@@ -12,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -31,10 +32,18 @@ public class FeedbackEffect {
     private IntelligenceType intelligenceType;
     @Column(nullable = false, precision = 3, scale = 2)
     private BigDecimal delta;
+    @Column(name = "reversed_at")
+    private OffsetDateTime reversedAt;
 
     public FeedbackEffect(Feedback feedback, IntelligenceType intelligenceType, BigDecimal delta) {
         this.feedback = feedback;
         this.intelligenceType = intelligenceType;
         this.delta = delta;
+    }
+
+    public void reverse() {
+        if (reversedAt == null) {
+            reversedAt = OffsetDateTime.now();
+        }
     }
 }

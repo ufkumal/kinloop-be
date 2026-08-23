@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ActivityMatchingService {
     private final ChildRepository childRepository;
     private final ChildProfileSnapshotRepository profileRepository;
+    private final ChildSensoryAdjustmentRepository sensoryAdjustmentRepository;
     private final ActivityRepository activityRepository;
     private final DunnProfileRepository dunnRepository;
     private final DevelopmentalPeriodTaskRepository periodRepository;
@@ -58,11 +59,13 @@ public class ActivityMatchingService {
 
         DunnQuadrant quadrant = profile.getDunnQuadrant() == null ? DunnQuadrant.MIXED : profile.getDunnQuadrant();
         DunnProfile dunn = dunnRepository.findById(quadrant).orElseThrow(() -> new IllegalStateException("Dunn profile is missing: " + quadrant));
+        ChildSensoryAdjustment sensoryAdjustment = sensoryAdjustmentRepository.findByChildId(child.getId())
+                .orElse(null);
         DevelopmentDomain period = periodRepository.findForAge(ageMonths).orElseThrow(() -> new IllegalStateException("Developmental period is missing")).getTargetDomain();
         Map<IntelligenceType, ChildIntelligenceScore> scores = intelligenceRepository.findByChildId(child.getId()).stream().collect(Collectors.toMap(ChildIntelligenceScore::getIntelligenceType, Function.identity()));
         Map<DevelopmentDomain, ChildDomainLevel> levels = domainRepository.findByChildId(child.getId()).stream().collect(Collectors.toMap(ChildDomainLevel::getDomain, Function.identity()));
         List<Activity> preFreshnessPool = activityRepository.findEligibleBasePool(ageMonths, budget).stream()
-                .filter(a -> eligibilityPolicy.allows(a, profile, p))
+                .filter(a -> eligibilityPolicy.allows(a, profile, sensoryAdjustment, p))
                 .toList();
         int freshnessWindow = freshnessPolicy.windowSize(preFreshnessPool.size(), p);
         Set<Long> recentActivityIds = planRepository.findActivityIdsInRecentPlans(
@@ -71,7 +74,7 @@ public class ActivityMatchingService {
                 preFreshnessPool, recentActivityIds, freshnessWindow);
 
         List<ScoredActivity> preFreshnessScored = activityPool.preFreshnessPool().stream()
-                .map(a -> scorer.score(a, profile, dunn, period, scores, levels, p))
+                .map(a -> scorer.score(a, profile, dunn, sensoryAdjustment, period, scores, levels, p))
                 .sorted(candidateOrdering.comparator(child.getId(), today, scores, p))
                 .toList();
         Set<Long> freshIds = activityPool.eligiblePool().stream().map(Activity::getId).collect(Collectors.toSet());

@@ -14,6 +14,7 @@ import com.kinloop.backend.repository.ChildDomainLevelRepository;
 import com.kinloop.backend.repository.ChildIntelligenceScoreRepository;
 import com.kinloop.backend.repository.ChildProfileSnapshotRepository;
 import com.kinloop.backend.repository.ChildRepository;
+import com.kinloop.backend.repository.ChildSensoryAdjustmentRepository;
 import com.kinloop.backend.repository.DailyPlanRepository;
 import com.kinloop.backend.repository.DevelopmentalPeriodTaskRepository;
 import com.kinloop.backend.repository.DunnProfileRepository;
@@ -38,6 +39,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 class ActivityMatchingServiceTest {
     @Mock private ChildRepository childRepository;
     @Mock private ChildProfileSnapshotRepository profileRepository;
+    @Mock private ChildSensoryAdjustmentRepository sensoryAdjustmentRepository;
     @Mock private ActivityRepository activityRepository;
     @Mock private DunnProfileRepository dunnRepository;
     @Mock private DevelopmentalPeriodTaskRepository periodRepository;

@@ -5,6 +5,7 @@ import com.kinloop.backend.entity.ActivityInstruction;
 import com.kinloop.backend.entity.ChildDomainLevel;
 import com.kinloop.backend.entity.ChildIntelligenceScore;
 import com.kinloop.backend.entity.ChildProfileSnapshot;
+import com.kinloop.backend.entity.ChildSensoryAdjustment;
 import com.kinloop.backend.entity.DunnProfile;
 import com.kinloop.backend.entity.enums.DevelopmentDomain;
 import com.kinloop.backend.entity.enums.IntelligenceType;
@@ -23,12 +24,13 @@ public class ActivityScorer {
             Activity activity,
             ChildProfileSnapshot profile,
             DunnProfile dunn,
+            ChildSensoryAdjustment adjustment,
             DevelopmentDomain period,
             Map<IntelligenceType, ChildIntelligenceScore> scores,
             Map<DevelopmentDomain, ChildDomainLevel> levels,
             Map<String, BigDecimal> parameters
     ) {
-        BigDecimal sensoryPenalty = sensoryPenalty(activity, dunn);
+        BigDecimal sensoryPenalty = sensoryPenalty(activity, dunn, adjustment);
         BigDecimal interestBonus = interestBonus(activity, scores, parameters);
         BigDecimal periodBonus = activity.getTargetDomain() == period
                 ? parameters.get("developmental_period_bonus") : BigDecimal.ZERO;
@@ -57,13 +59,27 @@ public class ActivityScorer {
         return new ScoredActivity(activity, roundedRaw, display, breakdown);
     }
 
-    private BigDecimal sensoryPenalty(Activity activity, DunnProfile dunn) {
+    private BigDecimal sensoryPenalty(
+            Activity activity,
+            DunnProfile dunn,
+            ChildSensoryAdjustment adjustment
+    ) {
         BigDecimal noiseWeight = Objects.requireNonNull(dunn.getNoiseWeight(), "Dunn noise weight is required");
         BigDecimal visualWeight = Objects.requireNonNull(dunn.getVisualWeight(), "Dunn visual weight is required");
         BigDecimal movementWeight = Objects.requireNonNull(dunn.getMovementWeight(), "Dunn movement weight is required");
-        return noiseWeight.multiply(distance(dunn.getNoiseTolerance(), activity.getNoiseLoad()))
-                .add(visualWeight.multiply(distance(dunn.getVisualTolerance(), activity.getVisualLoad())))
-                .add(movementWeight.multiply(distance(dunn.getMovementTolerance(), activity.getPhysicalIntensity())));
+        short noiseTolerance = adjustedTolerance(
+                dunn.getNoiseTolerance(), adjustment == null ? 0 : adjustment.getNoiseAdjustment());
+        short visualTolerance = adjustedTolerance(
+                dunn.getVisualTolerance(), adjustment == null ? 0 : adjustment.getVisualAdjustment());
+        short movementTolerance = adjustedTolerance(
+                dunn.getMovementTolerance(), adjustment == null ? 0 : adjustment.getMovementAdjustment());
+        return noiseWeight.multiply(distance(noiseTolerance, activity.getNoiseLoad()))
+                .add(visualWeight.multiply(distance(visualTolerance, activity.getVisualLoad())))
+                .add(movementWeight.multiply(distance(movementTolerance, activity.getPhysicalIntensity())));
+    }
+
+    private short adjustedTolerance(short tolerance, short adjustment) {
+        return (short) Math.max(1, Math.min(5, (int) tolerance + adjustment));
     }
 
     private BigDecimal interestBonus(

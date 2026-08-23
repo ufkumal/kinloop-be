@@ -80,7 +80,7 @@ class PostgreSqlMigrationIntegrationTest {
     }
 
     @Test
-    void appliesEveryMigrationThroughV22() throws SQLException {
+    void appliesEveryMigrationThroughV28() throws SQLException {
         MigrationHistory history = queryOne("""
                 SELECT count(*) AS migration_count,
                        min(version::integer) AS first_version,
@@ -95,11 +95,89 @@ class PostgreSqlMigrationIntegrationTest {
                 result.getBoolean("all_successful")));
 
         assertAll(
-                () -> assertEquals(22, migrationsExecuted),
-                () -> assertEquals(22, history.migrationCount()),
+                () -> assertEquals(28, migrationsExecuted),
+                () -> assertEquals(28, history.migrationCount()),
                 () -> assertEquals(1, history.firstVersion()),
-                () -> assertEquals(22, history.lastVersion()),
+                () -> assertEquals(28, history.lastVersion()),
                 () -> assertTrue(history.allSuccessful()));
+    }
+
+    @Test
+    void feedbackEffectsHaveNullableReversalTimestamp() throws SQLException {
+        ColumnMetadata reversedAt = column("feedback_effects", "reversed_at");
+
+        assertAll(
+                () -> assertEquals("timestamp with time zone", reversedAt.dataType()),
+                () -> assertEquals("YES", reversedAt.nullable()),
+                () -> assertNull(reversedAt.columnDefault()));
+    }
+
+    @Test
+    void createsOptionalChildSensoryAdjustments() throws SQLException {
+        Map<String, ColumnMetadata> columns = columns(
+                "child_sensory_adjustments",
+                "child_id", "noise_adjustment", "visual_adjustment", "movement_adjustment",
+                "involvement_filter", "updated_at");
+
+        assertAll(
+                () -> assertEquals("bigint", columns.get("child_id").dataType()),
+                () -> assertRequiredColumn(columns, "noise_adjustment", "smallint", "0"),
+                () -> assertRequiredColumn(columns, "visual_adjustment", "smallint", "0"),
+                () -> assertRequiredColumn(columns, "movement_adjustment", "smallint", "0"),
+                () -> assertEquals("YES", columns.get("involvement_filter").nullable()),
+                () -> assertRequiredColumn(
+                        columns, "updated_at", "timestamp with time zone", "now()"),
+                () -> assertTrue(constraint(
+                        "child_sensory_adjustments",
+                        "chk_child_sensory_adjustments_involvement_filter").contains("RELAXED")));
+    }
+
+    @Test
+    void addsNullableFeedbackFreeTextColumn() throws SQLException {
+        ColumnMetadata freeText = column("feedback", "free_text");
+
+        assertAll(
+                () -> assertEquals("text", freeText.dataType()),
+                () -> assertEquals("YES", freeText.nullable()),
+                () -> assertNull(freeText.columnDefault()));
+    }
+
+    @Test
+    void createsFeedbackLlmClassificationStorage() throws SQLException {
+        Map<String, ColumnMetadata> columns = columns(
+                "feedback_llm_classifications",
+                "feedback_id", "applied", "confidence", "target_correction", "secondary_hint",
+                "sensory_hint", "involvement_hint", "difficulty_hint", "situation_hint",
+                "duration_hint", "conflict", "raw_response", "created_at");
+        ColumnMetadata confidence = columns.get("confidence");
+
+        assertAll(
+                () -> assertEquals("bigint", columns.get("feedback_id").dataType()),
+                () -> assertRequiredColumn(columns, "applied", "boolean", "false"),
+                () -> assertEquals("numeric", confidence.dataType()),
+                () -> assertEquals(3, confidence.numericPrecision()),
+                () -> assertEquals(2, confidence.numericScale()),
+                () -> assertEquals("YES", confidence.nullable()),
+                () -> assertEquals("character varying", columns.get("target_correction").dataType()),
+                () -> assertEquals("character varying", columns.get("secondary_hint").dataType()),
+                () -> assertEquals("character varying", columns.get("sensory_hint").dataType()),
+                () -> assertEquals("character varying", columns.get("involvement_hint").dataType()),
+                () -> assertEquals("character varying", columns.get("difficulty_hint").dataType()),
+                () -> assertEquals("character varying", columns.get("situation_hint").dataType()),
+                () -> assertEquals("character varying", columns.get("duration_hint").dataType()),
+                () -> assertRequiredColumn(columns, "conflict", "boolean", "false"),
+                () -> assertEquals("text", columns.get("raw_response").dataType()),
+                () -> assertRequiredColumn(columns, "created_at", "timestamp with time zone", "now()"),
+                () -> assertTrue(constraint("feedback_llm_classifications",
+                        "chk_feedback_llm_sensory_hint").contains("CROWDING")),
+                () -> assertTrue(constraint("feedback_llm_classifications",
+                        "chk_feedback_llm_involvement_hint").contains("TOGETHER")),
+                () -> assertTrue(constraint("feedback_llm_classifications",
+                        "chk_feedback_llm_difficulty_hint").contains("HARDER")),
+                () -> assertTrue(constraint("feedback_llm_classifications",
+                        "chk_feedback_llm_situation_hint").contains("TRANSIENT")),
+                () -> assertTrue(constraint("feedback_llm_classifications",
+                        "chk_feedback_llm_duration_hint").contains("SHORT")));
     }
 
     @Test
@@ -266,6 +344,50 @@ class PostgreSqlMigrationIntegrationTest {
                 () -> assertEquals("numeric", parameterValue.dataType()),
                 () -> assertEquals(20, parameterValue.numericPrecision()),
                 () -> assertEquals(4, parameterValue.numericScale()));
+    }
+
+    @Test
+    void installsIndependentLlmDifficultyHintParameters() throws SQLException {
+        Map<String, BigDecimal> actual = new LinkedHashMap<>();
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT parameter_key, value
+                FROM scoring_parameters
+                WHERE parameter_key IN (
+                    'llm_difficulty_hint_harder_delta',
+                    'llm_difficulty_hint_easier_delta')
+                """);
+             ResultSet result = statement.executeQuery()) {
+            while (result.next()) {
+                actual.put(result.getString("parameter_key"), result.getBigDecimal("value"));
+            }
+        }
+
+        assertEquals(2, actual.size());
+        assertDecimal("0.20", actual.get("llm_difficulty_hint_harder_delta"));
+        assertDecimal("-0.20", actual.get("llm_difficulty_hint_easier_delta"));
+    }
+
+    @Test
+    void installsFeedbackSpecificConfidenceGateAndKeepsTheSharedDeltaCap() throws SQLException {
+        Map<String, BigDecimal> actual = new LinkedHashMap<>();
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT parameter_key, value
+                FROM scoring_parameters
+                WHERE parameter_key IN (
+                    'llm_feedback_confidence_threshold',
+                    'llm_signal_confidence_threshold',
+                    'llm_signal_max_absolute_delta')
+                """);
+             ResultSet result = statement.executeQuery()) {
+            while (result.next()) {
+                actual.put(result.getString("parameter_key"), result.getBigDecimal("value"));
+            }
+        }
+
+        assertEquals(3, actual.size());
+        assertDecimal("0.70", actual.get("llm_feedback_confidence_threshold"));
+        assertDecimal("0.60", actual.get("llm_signal_confidence_threshold"));
+        assertDecimal("0.30", actual.get("llm_signal_max_absolute_delta"));
     }
 
     @Test
