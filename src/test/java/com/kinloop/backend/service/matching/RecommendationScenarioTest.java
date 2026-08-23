@@ -1,11 +1,8 @@
 package com.kinloop.backend.service.matching;
 
-import static com.kinloop.backend.service.matching.MatchingTestFixtures.levelOneDomains;
-import static com.kinloop.backend.service.matching.MatchingTestFixtures.neutralIntelligenceScores;
-import static com.kinloop.backend.service.matching.MatchingTestFixtures.parameters;
 import static com.kinloop.backend.service.matching.MatchingTestFixtures.set;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.kinloop.backend.entity.Activity;
@@ -20,99 +17,353 @@ import com.kinloop.backend.entity.enums.FocusBand;
 import com.kinloop.backend.entity.enums.IntelligenceType;
 import com.kinloop.backend.entity.enums.InvolvementType;
 import com.kinloop.backend.entity.enums.PlanSlotType;
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * Acceptance-level regression tests derived from the 15 August 2026 examples
- * and aligned with the v6 filtering and scoring rules.
- * The canonical activity migration is treated as test input; repositories and Spring
- * are deliberately not involved, so failures point at matching policy changes.
+ * Acceptance scenarios executed against the complete Flyway-migrated activity
+ * pool. The database, rather than a migration file parser, is the source of
+ * activity content, Dunn profiles, age periods, and scoring parameters.
  */
+@Testcontainers(disabledWithoutDocker = true)
 class RecommendationScenarioTest {
-    private static final String ACTIVITY_SEED = "db/migration/V10__kidloop_128_home_activities.sql";
-    private static final Pattern ACTIVITY_ROW = Pattern.compile(
-            "^\\s*\\(\\d+, 'HOME', NULL,.*?\\bTRUE\\)(?:,|;|\\s*$)",
-            Pattern.MULTILINE | Pattern.DOTALL);
+
+    @Container
+    private static final PostgreSQLContainer<?> POSTGRES =
+            new PostgreSQLContainer<>("postgres:16-alpine")
+                    .withDatabaseName("kinloop_recommendation_test")
+                    .withUsername("kinloop")
+                    .withPassword("kinloop");
+
+    private static final LocalDate PLAN_DATE = LocalDate.of(2026, 8, 21);
+    private static Connection connection;
+    private static List<Activity> activities;
+    private static Map<DunnQuadrant, DunnProfile> dunnProfiles;
+    private static Map<String, BigDecimal> parameters;
+    private static List<AgePeriod> agePeriods;
 
     private final ActivityEligibilityPolicy eligibility = new ActivityEligibilityPolicy();
     private final ActivityScorer scorer = new ActivityScorer();
+    private final CandidateOrdering ordering = new CandidateOrdering();
     private final DailyPortfolioBuilder portfolioBuilder = new DailyPortfolioBuilder();
-    private final List<Activity> activities = loadActivities();
 
-    @TestFactory
-    Stream<DynamicTest> matchesReferenceScenarios() {
-        return scenarios().stream().map(scenario -> DynamicTest.dynamicTest(
-                scenario.name(), () -> assertScenario(scenario)));
+    @BeforeAll
+    static void migrateAndLoadDatabase() throws SQLException {
+        Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .locations("classpath:db/migration")
+                .load()
+                .migrate();
+        connection = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+        activities = loadActivities();
+        dunnProfiles = loadDunnProfiles();
+        parameters = loadParameters();
+        agePeriods = loadAgePeriods();
     }
 
-    private void assertScenario(Scenario scenario) {
-        ChildProfileSnapshot profile = profile(scenario.quadrant(), scenario.anxiety());
-        Map<IntelligenceType, ChildIntelligenceScore> intelligenceScores = neutralIntelligenceScores();
-        Map<DevelopmentDomain, ChildDomainLevel> domainLevels = levelOneDomains();
-        scenario.configure().apply(intelligenceScores, domainLevels);
+    @AfterAll
+    static void closeConnection() throws SQLException {
+        if (connection != null) connection.close();
+    }
 
-        List<Activity> pool = activities.stream()
-                .filter(activity -> activity.getMinAgeMonths() <= scenario.ageMonths())
-                .filter(activity -> activity.getMaxAgeMonths() >= scenario.ageMonths())
-                .filter(activity -> activity.getDurationMinutes() <= scenario.budgetMinutes())
-                .filter(activity -> eligibility.allows(activity, profile, null, parameters()))
-                .toList();
+    @Test
+    void loadsTheCompleteMigratedPoolInsteadOfParsingV10() {
+        assertAll(
+                () -> assertEquals(243, activities.size()),
+                () -> assertEquals(243, activities.stream()
+                        .filter(activity -> "HOME".equals(activity.getScope()))
+                        .filter(activity -> "PUBLISHED".equals(activity.getStatus()))
+                        .count()),
+                () -> assertTrue(activities.stream().allMatch(activity -> activity.getInstruction() != null)),
+                () -> assertTrue(activities.stream().allMatch(activity ->
+                        activity.getInstruction().getEasierVariation() != null
+                                && !activity.getInstruction().getEasierVariation().isBlank())),
+                () -> assertTrue(activities.stream().allMatch(activity ->
+                        activity.getInstruction().getHarderVariation() != null
+                                && !activity.getInstruction().getHarderVariation().isBlank())));
+    }
 
-        DevelopmentDomain period = periodFor(scenario.ageMonths());
-        DunnProfile dunn = dunnProfile(scenario.quadrant());
-        List<ScoredActivity> preFreshnessScored = pool.stream()
-                .map(activity -> scorer.score(activity, profile, dunn, null, period,
-                        intelligenceScores, domainLevels, parameters()))
-                .sorted(Comparator.comparing(ScoredActivity::rawScore).reversed()
-                        .thenComparing(value -> value.activity().getId()))
-                .toList();
-        List<ScoredActivity> freshScored = preFreshnessScored.stream()
-                .filter(candidate -> !scenario.yesterday().contains(candidate.activity().getId()))
-                .toList();
+    @TestFactory
+    Stream<DynamicTest> migratedV6ProfilesProduceUsablePlans() {
+        return List.of(
+                new Scenario("30 months calm", 30, DunnQuadrant.C1, 2, 35),
+                new Scenario("30 months energetic", 30, DunnQuadrant.C2, 2, 35),
+                new Scenario("30 months sensitive", 30, DunnQuadrant.C3, 2, 35),
+                new Scenario("30 months protective", 30, DunnQuadrant.C4, 2, 35),
+                new Scenario("30 months high anxiety", 30, DunnQuadrant.C1, 4, 35),
+                new Scenario("8 month infant", 8, DunnQuadrant.C1, 2, 25),
+                new Scenario("48 month boundary", 48, DunnQuadrant.C1, 2, 35),
+                new Scenario("60 month child", 60, DunnQuadrant.C1, 2, 35)
+        ).stream().map(scenario -> DynamicTest.dynamicTest(scenario.name(), () -> {
+            ChildProfileSnapshot profile = profile(scenario.quadrant(), scenario.anxiety());
+            List<Activity> pool = eligiblePool(scenario.ageMonths(), scenario.budgetMax(), profile);
+            DailyPortfolioBuilder.Result plan = buildPlan(
+                    pool, Set.of(), scenario.ageMonths(), scenario.budgetMax(), profile,
+                    neutralScores(), initialLevels(scenario.ageMonths()), 41L, PLAN_DATE);
 
+            assertTrue(pool.size() >= 3, "migrated eligible pool");
+            assertEquals(3, plan.selections().size(), "complete v6 plan");
+            assertTrue(plan.fallbackLevel() < 4, "must not use empty-pool fallback");
+            if (scenario.quadrant() == DunnQuadrant.C4) {
+                assertTrue(pool.size() > 2,
+                        "the obsolete v5 C4 content-gap expectation must stay removed");
+            }
+            if (scenario.anxiety() >= 4) {
+                assertTrue(pool.stream().noneMatch(activity ->
+                        activity.getInvolvementType() == InvolvementType.BAGIMSIZ));
+            }
+        }));
+    }
+
+    @Test
+    void appliesV6CeilingAndAttachmentScoringFromMigratedParameters() {
+        Activity ceilingActivity = activities.stream()
+                .filter(activity -> activity.getDifficulty() == 4)
+                .findFirst().orElseThrow();
+        Map<DevelopmentDomain, ChildDomainLevel> ceilingLevels = levelsAt((short) 4);
+        ChildProfileSnapshot calm = profile(DunnQuadrant.C1, 2);
+        ScoredActivity ceilingScore = scorer.score(
+                ceilingActivity, calm, dunnProfiles.get(DunnQuadrant.C1), null,
+                ceilingActivity.getTargetDomain(), neutralScores(), ceilingLevels, parameters);
+
+        Activity together = activities.stream()
+                .filter(activity -> activity.getInvolvementType() == InvolvementType.BIRLIKTE)
+                .findFirst().orElseThrow();
+        Activity supervised = activities.stream()
+                .filter(activity -> activity.getInvolvementType() == InvolvementType.GOZETIMLI)
+                .findFirst().orElseThrow();
+        ChildProfileSnapshot anxious = profile(DunnQuadrant.C1, 4);
+        Map<DevelopmentDomain, ChildDomainLevel> levels = levelsAt((short) 1);
+        ScoredActivity togetherScore = scorer.score(
+                together, anxious, dunnProfiles.get(DunnQuadrant.C1), null,
+                together.getTargetDomain(), neutralScores(), levels, parameters);
+        ScoredActivity supervisedScore = scorer.score(
+                supervised, anxious, dunnProfiles.get(DunnQuadrant.C1), null,
+                supervised.getTargetDomain(), neutralScores(), levels, parameters);
+
+        assertAll(
+                () -> assertDecimal(parameters.get("zpd_sweet_spot_bonus"),
+                        ceilingScore.breakdown().get("Z")),
+                () -> assertDecimal(parameters.get("attachment_multiplier_together"),
+                        togetherScore.breakdown().get("B")),
+                () -> assertDecimal(BigDecimal.ONE, supervisedScore.breakdown().get("B")));
+    }
+
+    @Test
+    void fillsSlotsInOrderAndConsumesOnlyTheBudgetMaximum() {
+        int age = 30;
+        int budgetMax = 25;
+        ChildProfileSnapshot profile = profile(DunnQuadrant.C1, 2);
         DailyPortfolioBuilder.Result plan = buildPlan(
-                freshScored, preFreshnessScored, scenario.yesterday(), period,
-                intelligenceScores, scenario.budgetMinutes());
+                eligiblePool(age, budgetMax, profile), Set.of(), age, budgetMax, profile,
+                neutralScores(), initialLevels(age), 71L, PLAN_DATE);
 
-        assertEquals(scenario.expectedPoolSize(), pool.size(), "eligible pool");
-        assertEquals(Math.min(3, pool.size()), plan.selections().size(), "fallback output size");
-        assertEquals(plan.selections().size(), plan.selections().stream()
-                .map(item -> item.activity().activity().getId()).distinct().count(), "distinct activities");
-        assertEquals(List.of(PlanSlotType.DEVELOP, PlanSlotType.STRENGTHEN, PlanSlotType.EXPLORE)
-                        .subList(0, plan.selections().size()),
-                plan.selections().stream().map(DailyPortfolioBuilder.Selection::slot).toList(), "slot order");
-        assertTrue(plan.committedDurationMinutes() <= scenario.budgetMinutes(), "committed budget");
-        assertEquals(plan.selections().stream()
-                        .mapToInt(item -> item.activity().activity().getDurationMinutes()).sum(),
-                plan.totalDurationMinutes(), "persisted total duration");
-        assertFalse(plan.selections().isEmpty(), "the seeded scenario pool is non-empty");
+        assertAll(
+                () -> assertEquals(List.of(
+                                PlanSlotType.DEVELOP, PlanSlotType.STRENGTHEN, PlanSlotType.EXPLORE),
+                        plan.selections().stream().map(DailyPortfolioBuilder.Selection::slot).toList()),
+                () -> assertEquals(periodFor(age),
+                        plan.selections().getFirst().activity().activity().getTargetDomain()),
+                () -> assertEquals(3, plan.selections().stream()
+                        .map(selection -> selection.activity().activity().getId()).distinct().count()),
+                () -> assertTrue(plan.committedDurationMinutes() <= budgetMax),
+                () -> assertTrue(plan.totalDurationMinutes() >= plan.committedDurationMinutes()),
+                () -> assertTrue(plan.selections().stream()
+                        .filter(selection -> !selection.withinBudget())
+                        .allMatch(selection -> selection.slot() == PlanSlotType.EXPLORE)));
+    }
+
+    @Test
+    void exercisesEveryV6FallbackLevelWithMigratedActivities() {
+        int age = 30;
+        int budget = 45;
+        ChildProfileSnapshot profile = profile(DunnQuadrant.C1, 2);
+        Map<IntelligenceType, ChildIntelligenceScore> scores = neutralScores();
+        Map<DevelopmentDomain, ChildDomainLevel> levels = initialLevels(age);
+        List<ScoredActivity> scored = scoredPool(
+                eligiblePool(age, 10, profile), age, profile, scores, levels, 9L, PLAN_DATE);
+
+        ScoredActivity development = scored.stream()
+                .filter(candidate -> candidate.activity().getTargetDomain() == periodFor(age))
+                .findFirst().orElseThrow();
+        List<ScoredActivity> nonDevelopment = scored.stream()
+                .filter(candidate -> candidate.activity().getTargetDomain() != periodFor(age))
+                .limit(3).toList();
+        assertEquals(3, nonDevelopment.size(), "fixture requires three non-development cards");
+
+        Set<Long> fullIds = new LinkedHashSet<>();
+        fullIds.add(development.activity().getId());
+        nonDevelopment.stream().limit(2).map(candidate -> candidate.activity().getId()).forEach(fullIds::add);
+        List<ScoredActivity> full = scored.stream()
+                .filter(candidate -> fullIds.contains(candidate.activity().getId())).toList();
+        List<ScoredActivity> freshWithoutDevelopment = full.stream()
+                .filter(candidate -> candidate.activity().getId() != development.activity().getId()).toList();
+
+        DailyPortfolioBuilder.Result fallbackOne = portfolioBuilder.build(new DailyPortfolioBuilder.Request(
+                freshWithoutDevelopment, full, Set.of(development.activity().getId()),
+                periodFor(age), scores, budget, false));
+        DailyPortfolioBuilder.Result fallbackTwo = portfolioBuilder.build(new DailyPortfolioBuilder.Request(
+                nonDevelopment, nonDevelopment, Set.of(), periodFor(age), scores, budget, false));
+        List<ScoredActivity> twoCards = nonDevelopment.subList(0, 2);
+        DailyPortfolioBuilder.Result fallbackThree = portfolioBuilder.build(new DailyPortfolioBuilder.Request(
+                twoCards, twoCards, Set.of(), periodFor(age), scores, budget, false));
+        DailyPortfolioBuilder.Result fallbackFour = portfolioBuilder.build(new DailyPortfolioBuilder.Request(
+                List.of(), List.of(), Set.of(), periodFor(age), scores, budget, false));
+
+        assertAll(
+                () -> assertEquals((short) 1, fallbackOne.fallbackLevel()),
+                () -> assertTrue(fallbackOne.selections().stream().anyMatch(
+                        DailyPortfolioBuilder.Selection::repeatNotice)),
+                () -> assertEquals((short) 2, fallbackTwo.fallbackLevel()),
+                () -> assertEquals(3, fallbackTwo.selections().size()),
+                () -> assertEquals((short) 3, fallbackThree.fallbackLevel()),
+                () -> assertEquals(2, fallbackThree.selections().size()),
+                () -> assertEquals((short) 4, fallbackFour.fallbackLevel()),
+                () -> assertTrue(fallbackFour.selections().isEmpty()));
+    }
+
+    @Test
+    void feedbackChangesGardnerAndDifficultyLedgersUsingMigratedParameters() {
+        Activity activity = activities.stream()
+                .filter(candidate -> candidate.getDifficulty() == 2)
+                .findFirst().orElseThrow();
+        Map<IntelligenceType, ChildIntelligenceScore> scores = neutralScores();
+        ChildIntelligenceScore target = new ChildIntelligenceScore(
+                1L, activity.getTargetIntelligence(), new BigDecimal("3.90"));
+        scores.put(activity.getTargetIntelligence(), target);
+        ChildIntelligenceScore secondary = scores.get(activity.getSecondaryIntelligence());
+        Map<DevelopmentDomain, ChildDomainLevel> levels = levelsAt((short) 1);
+        ChildDomainLevel domain = levels.get(activity.getTargetDomain());
+        ChildProfileSnapshot profile = profile(DunnQuadrant.C1, 2);
+
+        ScoredActivity before = scorer.score(
+                activity, profile, dunnProfiles.get(DunnQuadrant.C1), null,
+                activity.getTargetDomain(), scores, levels, parameters);
+        target.applyFeedback(parameters.get("liked_target_delta"),
+                parameters.get("gardner_runtime_min_score"),
+                parameters.get("gardner_runtime_max_score"));
+        target.recordFeedbackSample();
+        secondary.applyFeedback(parameters.get("liked_secondary_delta"),
+                parameters.get("gardner_runtime_min_score"),
+                parameters.get("gardner_runtime_max_score"));
+        ScoredActivity after = scorer.score(
+                activity, profile, dunnProfiles.get(DunnQuadrant.C1), null,
+                activity.getTargetDomain(), scores, levels, parameters);
+
+        applyDomainFeedback(domain, parameters.get("level_credit_stretch"));
+        applyDomainFeedback(domain, parameters.get("level_credit_stretch"));
+        applyDomainFeedback(domain, parameters.get("level_credit_stretch"));
+        assertEquals((short) 2, domain.getLevel(), "three stretch credits level up");
+        applyDomainFeedback(domain, parameters.get("level_penalty_struggle_at_level"));
+        applyDomainFeedback(domain, parameters.get("level_penalty_struggle_at_level"));
+
+        assertAll(
+                () -> assertDecimal(new BigDecimal("4.20"), target.getScore()),
+                () -> assertDecimal(new BigDecimal("3.15"), secondary.getScore()),
+                () -> assertEquals(1, target.getFeedbackCount()),
+                () -> assertDecimal(BigDecimal.ZERO, before.breakdown().get("G")),
+                () -> assertDecimal(parameters.get("gardner_comfort_bonus"),
+                        after.breakdown().get("G")),
+                () -> assertEquals((short) 1, domain.getLevel(),
+                        "two at-level struggle votes level down"));
+    }
+
+    @Test
+    void identicalDatabaseProfileAndDateProduceTheSamePlanEveryTime() {
+        int age = 30;
+        int budget = 35;
+        long childId = 812L;
+        ChildProfileSnapshot profile = profile(DunnQuadrant.C1, 2);
+        List<Activity> pool = eligiblePool(age, budget, profile);
+        Map<IntelligenceType, ChildIntelligenceScore> scores = neutralScores();
+        Map<DevelopmentDomain, ChildDomainLevel> levels = initialLevels(age);
+
+        List<Long> expected = planIds(buildPlan(
+                pool, Set.of(), age, budget, profile, scores, levels, childId, PLAN_DATE));
+        for (int attempt = 0; attempt < 10; attempt++) {
+            assertEquals(expected, planIds(buildPlan(
+                    pool, Set.of(), age, budget, profile, scores, levels, childId, PLAN_DATE)));
+        }
     }
 
     private DailyPortfolioBuilder.Result buildPlan(
-            List<ScoredActivity> freshScored,
-            List<ScoredActivity> preFreshnessScored,
+            List<Activity> pool,
             Set<Long> recentIds,
-            DevelopmentDomain period,
-            Map<IntelligenceType, ChildIntelligenceScore> intelligenceScores,
-            int budget) {
+            int age,
+            int budgetMax,
+            ChildProfileSnapshot profile,
+            Map<IntelligenceType, ChildIntelligenceScore> scores,
+            Map<DevelopmentDomain, ChildDomainLevel> levels,
+            long childId,
+            LocalDate planDate
+    ) {
+        List<ScoredActivity> preFreshness = scoredPool(
+                pool, age, profile, scores, levels, childId, planDate);
+        List<ScoredActivity> fresh = preFreshness.stream()
+                .filter(candidate -> !recentIds.contains(candidate.activity().getId()))
+                .toList();
+        boolean supervisedGuarantee = profile.getSeparationAnxiety() != null
+                && profile.getSeparationAnxiety() >= parameters.get("attachment_anxiety_threshold").intValueExact()
+                && parameters.get("attachment_guarantee_supervised").signum() != 0;
         return portfolioBuilder.build(new DailyPortfolioBuilder.Request(
-                freshScored, preFreshnessScored, recentIds,
-                period, intelligenceScores, budget, false));
+                fresh, preFreshness, recentIds, periodFor(age), scores, budgetMax,
+                supervisedGuarantee));
     }
 
-    private ChildProfileSnapshot profile(DunnQuadrant quadrant, int anxiety) {
+    private List<ScoredActivity> scoredPool(
+            List<Activity> pool,
+            int age,
+            ChildProfileSnapshot profile,
+            Map<IntelligenceType, ChildIntelligenceScore> scores,
+            Map<DevelopmentDomain, ChildDomainLevel> levels,
+            long childId,
+            LocalDate planDate
+    ) {
+        DunnProfile dunn = dunnProfiles.get(profile.getDunnQuadrant());
+        DevelopmentDomain period = periodFor(age);
+        return pool.stream()
+                .map(activity -> scorer.score(
+                        activity, profile, dunn, null, period, scores, levels, parameters))
+                .sorted(ordering.comparator(childId, planDate, scores, parameters))
+                .toList();
+    }
+
+    private List<Activity> eligiblePool(int age, int budgetMax, ChildProfileSnapshot profile) {
+        return activities.stream()
+                .filter(activity -> "HOME".equals(activity.getScope()))
+                .filter(activity -> "PUBLISHED".equals(activity.getStatus()))
+                .filter(activity -> activity.getDeletedAt() == null)
+                .filter(activity -> activity.getMinAgeMonths() <= age)
+                .filter(activity -> activity.getMaxAgeMonths() >= age)
+                .filter(activity -> activity.getDurationMinutes() <= budgetMax)
+                .filter(activity -> eligibility.allows(activity, profile, null, parameters))
+                .toList();
+    }
+
+    private static ChildProfileSnapshot profile(DunnQuadrant quadrant, int anxiety) {
         ChildProfileSnapshot profile = new ChildProfileSnapshot();
         profile.setDunnQuadrant(quadrant);
         profile.setSeparationAnxiety(anxiety);
@@ -120,151 +371,160 @@ class RecommendationScenarioTest {
         return profile;
     }
 
-    private DunnProfile dunnProfile(DunnQuadrant quadrant) {
-        DunnProfile profile = new DunnProfile();
-        set(profile, "quadrant", quadrant);
-        switch (quadrant) {
-            case C1, MIXED -> tolerances(profile, 3, 3, 3, "5", "5", "3");
-            case C2 -> tolerances(profile, 4, 4, 5, "3", "3", "6");
-            case C3 -> tolerances(profile, 2, 2, 3, "10", "10", "6");
-            case C4 -> tolerances(profile, 1, 2, 2, "5", "5", "3");
+    private static Map<IntelligenceType, ChildIntelligenceScore> neutralScores() {
+        Map<IntelligenceType, ChildIntelligenceScore> scores = new EnumMap<>(IntelligenceType.class);
+        for (IntelligenceType type : IntelligenceType.values()) {
+            scores.put(type, new ChildIntelligenceScore(1L, type, new BigDecimal("3.00")));
         }
-        return profile;
+        return scores;
     }
 
-    private void tolerances(DunnProfile profile, int noise, int visual, int movement,
-                            String noiseWeight, String visualWeight, String movementWeight) {
-        set(profile, "noiseTolerance", (short) noise);
-        set(profile, "visualTolerance", (short) visual);
-        set(profile, "movementTolerance", (short) movement);
-        set(profile, "noiseWeight", decimal(noiseWeight));
-        set(profile, "visualWeight", decimal(visualWeight));
-        set(profile, "movementWeight", decimal(movementWeight));
+    private static Map<DevelopmentDomain, ChildDomainLevel> initialLevels(int ageMonths) {
+        short level = ageMonths < 48 ? (short) 1 : ageMonths < 60 ? (short) 2 : (short) 3;
+        return levelsAt(level);
     }
 
-    private BigDecimal decimal(String value) {
-        return value == null ? null : new BigDecimal(value);
-    }
-
-    private DevelopmentDomain periodFor(int ageMonths) {
-        if (ageMonths < 24) return DevelopmentDomain.GROSS_MOTOR;
-        if (ageMonths < 48) return DevelopmentDomain.LANGUAGE;
-        return DevelopmentDomain.SOCIAL_EMOTIONAL;
-    }
-
-    private List<Activity> loadActivities() {
-        String sql;
-        try (var input = getClass().getClassLoader().getResourceAsStream(ACTIVITY_SEED)) {
-            if (input == null) throw new IllegalStateException("Missing activity seed: " + ACTIVITY_SEED);
-            sql = new String(input.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException exception) {
-            throw new IllegalStateException("Cannot read activity seed", exception);
+    private static Map<DevelopmentDomain, ChildDomainLevel> levelsAt(short level) {
+        Map<DevelopmentDomain, ChildDomainLevel> levels = new EnumMap<>(DevelopmentDomain.class);
+        for (DevelopmentDomain domain : DevelopmentDomain.values()) {
+            levels.put(domain, new ChildDomainLevel(1L, domain, level));
         }
+        return levels;
+    }
 
-        int activitiesInsert = sql.indexOf("INSERT INTO activities");
-        int upsertClause = sql.indexOf("ON CONFLICT (id) DO UPDATE", activitiesInsert);
-        Matcher rows = ACTIVITY_ROW.matcher(sql.substring(activitiesInsert, upsertClause));
+    private void applyDomainFeedback(ChildDomainLevel level, BigDecimal delta) {
+        level.applyFeedback(
+                delta,
+                parameters.get("level_up_threshold"),
+                parameters.get("level_down_threshold"),
+                parameters.get("level_min").shortValueExact(),
+                parameters.get("level_max").shortValueExact(),
+                parameters.get("ceiling_counter_cap"));
+    }
+
+    private static DevelopmentDomain periodFor(int ageMonths) {
+        return agePeriods.stream()
+                .filter(period -> period.minAgeMonths() <= ageMonths)
+                .filter(period -> period.maxAgeMonths() > ageMonths)
+                .map(AgePeriod::domain)
+                .findFirst().orElseThrow();
+    }
+
+    private static List<Long> planIds(DailyPortfolioBuilder.Result plan) {
+        return plan.selections().stream()
+                .map(selection -> selection.activity().activity().getId())
+                .toList();
+    }
+
+    private static void assertDecimal(BigDecimal expected, Object actual) {
+        assertTrue(actual instanceof BigDecimal, "expected a BigDecimal but got " + actual);
+        assertEquals(0, expected.compareTo((BigDecimal) actual));
+    }
+
+    private static List<Activity> loadActivities() throws SQLException {
         List<Activity> result = new ArrayList<>();
-        while (rows.find()) result.add(activity(tokens(rows.group())));
-        if (result.size() != 128) {
-            throw new IllegalStateException("Expected 128 seeded activities but parsed " + result.size());
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT a.id, a.scope, a.status, a.title, a.description,
+                       a.min_age_months, a.max_age_months,
+                       a.target_intelligence, a.secondary_intelligence, a.target_domain,
+                       a.difficulty, a.duration_minutes, a.involvement_type,
+                       a.noise_load, a.visual_load, a.physical_intensity, a.deleted_at,
+                       i.easier_variation, i.harder_variation
+                FROM activities a
+                LEFT JOIN activity_instructions i ON i.activity_id = a.id
+                ORDER BY a.id
+                """);
+             ResultSet rows = statement.executeQuery()) {
+            while (rows.next()) {
+                Activity activity = new Activity();
+                set(activity, "id", rows.getLong("id"));
+                set(activity, "scope", rows.getString("scope"));
+                set(activity, "status", rows.getString("status"));
+                set(activity, "title", rows.getString("title"));
+                set(activity, "description", rows.getString("description"));
+                set(activity, "minAgeMonths", rows.getInt("min_age_months"));
+                set(activity, "maxAgeMonths", rows.getInt("max_age_months"));
+                set(activity, "targetIntelligence",
+                        IntelligenceType.valueOf(rows.getString("target_intelligence")));
+                set(activity, "secondaryIntelligence",
+                        IntelligenceType.valueOf(rows.getString("secondary_intelligence")));
+                set(activity, "targetDomain",
+                        DevelopmentDomain.valueOf(rows.getString("target_domain")));
+                set(activity, "difficulty", rows.getShort("difficulty"));
+                set(activity, "durationMinutes", rows.getShort("duration_minutes"));
+                set(activity, "involvementType",
+                        InvolvementType.valueOf(rows.getString("involvement_type")));
+                set(activity, "noiseLoad", rows.getShort("noise_load"));
+                set(activity, "visualLoad", rows.getShort("visual_load"));
+                set(activity, "physicalIntensity", rows.getShort("physical_intensity"));
+                set(activity, "deletedAt", rows.getObject("deleted_at", java.time.OffsetDateTime.class));
+                ActivityInstruction instruction = new ActivityInstruction();
+                set(instruction, "easierVariation", rows.getString("easier_variation"));
+                set(instruction, "harderVariation", rows.getString("harder_variation"));
+                set(activity, "instruction", instruction);
+                result.add(activity);
+            }
         }
         return List.copyOf(result);
     }
 
-    private Activity activity(List<String> row) {
-        Activity activity = new Activity();
-        set(activity, "id", Long.parseLong(row.get(0)));
-        set(activity, "scope", "HOME");
-        set(activity, "status", "PUBLISHED");
-        set(activity, "title", row.get(3));
-        set(activity, "description", row.get(4));
-        set(activity, "minAgeMonths", Integer.parseInt(row.get(5)));
-        set(activity, "maxAgeMonths", Integer.parseInt(row.get(6)));
-        set(activity, "targetIntelligence", IntelligenceType.valueOf(row.get(8)));
-        set(activity, "secondaryIntelligence", "NULL".equals(row.get(9)) ? null : IntelligenceType.valueOf(row.get(9)));
-        set(activity, "targetDomain", DevelopmentDomain.valueOf(row.get(10)));
-        set(activity, "difficulty", Short.parseShort(row.get(11)));
-        set(activity, "durationMinutes", Short.parseShort(row.get(12)));
-        set(activity, "involvementType", InvolvementType.valueOf(row.get(13)));
-        set(activity, "noiseLoad", Short.parseShort(row.get(14)));
-        set(activity, "visualLoad", Short.parseShort(row.get(15)));
-        set(activity, "physicalIntensity", Short.parseShort(row.get(16)));
-        ActivityInstruction instruction = new ActivityInstruction();
-        set(instruction, "easierVariation", "Seeded easier variation");
-        set(activity, "instruction", instruction);
-        return activity;
-    }
-
-    private List<String> tokens(String tuple) {
-        int start = tuple.indexOf('(') + 1;
-        int end = tuple.lastIndexOf(')');
-        List<String> result = new ArrayList<>();
-        StringBuilder token = new StringBuilder();
-        boolean quoted = false;
-        for (int index = start; index < end; index++) {
-            char current = tuple.charAt(index);
-            if (current == '\'' && quoted && index + 1 < end && tuple.charAt(index + 1) == '\'') {
-                token.append('\'');
-                index++;
-            } else if (current == '\'') {
-                quoted = !quoted;
-            } else if (current == ',' && !quoted) {
-                result.add(token.toString().trim());
-                token.setLength(0);
-            } else {
-                token.append(current);
+    private static Map<DunnQuadrant, DunnProfile> loadDunnProfiles() throws SQLException {
+        Map<DunnQuadrant, DunnProfile> result = new EnumMap<>(DunnQuadrant.class);
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT quadrant, noise_tolerance, visual_tolerance, movement_tolerance,
+                       noise_weight, visual_weight, movement_weight
+                FROM dunn_profiles
+                """);
+             ResultSet rows = statement.executeQuery()) {
+            while (rows.next()) {
+                DunnQuadrant quadrant = DunnQuadrant.valueOf(rows.getString("quadrant"));
+                DunnProfile profile = new DunnProfile();
+                set(profile, "quadrant", quadrant);
+                set(profile, "noiseTolerance", rows.getShort("noise_tolerance"));
+                set(profile, "visualTolerance", rows.getShort("visual_tolerance"));
+                set(profile, "movementTolerance", rows.getShort("movement_tolerance"));
+                set(profile, "noiseWeight", rows.getBigDecimal("noise_weight"));
+                set(profile, "visualWeight", rows.getBigDecimal("visual_weight"));
+                set(profile, "movementWeight", rows.getBigDecimal("movement_weight"));
+                result.put(quadrant, profile);
             }
         }
-        result.add(token.toString().trim());
-        if (result.size() != 18) {
-            throw new IllegalStateException("Expected 18 activity columns but parsed " + result.size());
+        return Map.copyOf(result);
+    }
+
+    private static Map<String, BigDecimal> loadParameters() throws SQLException {
+        Map<String, BigDecimal> result = new LinkedHashMap<>();
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT parameter_key, value FROM scoring_parameters ORDER BY parameter_key
+                """);
+             ResultSet rows = statement.executeQuery()) {
+            while (rows.next()) result.put(rows.getString(1), rows.getBigDecimal(2));
         }
-        return result;
+        return Map.copyOf(result);
     }
 
-    private List<Scenario> scenarios() {
-        return List.of(
-                scenario("1 - first day, calm observer", 30, DunnQuadrant.C1, 2, 30, 24, Set.of()),
-                scenario("2 - second day freshness elimination", 30, DunnQuadrant.C1, 2, 30, 24, Set.of(8L, 67L, 80L)),
-                scenario("3 - short 15-minute budget", 30, DunnQuadrant.C1, 2, 15, 24, Set.of()),
-                scenario("4 - energetic explorer", 40, DunnQuadrant.C2, 2, 30, 23, Set.of()),
-                scenario("5 - sensitive observer", 30, DunnQuadrant.C3, 2, 30, 24, Set.of()),
-                scenario("6 - high separation anxiety", 30, DunnQuadrant.C1, 4, 30, 22, Set.of()),
-                scenario("7 - eight-month-old baby", 8, DunnQuadrant.C1, 2, 30, 24, Set.of()),
-                scenario("8 - sixty-month-old child", 60, DunnQuadrant.C1, 2, 30, 31, Set.of()),
-                scenario("9 - exact 48-month boundary", 48, DunnQuadrant.C1, 2, 30, 37, Set.of()),
-                advancedLanguageScenario(),
-                scenario("11 - protective profile content gap", 30, DunnQuadrant.C4, 2, 30, 2, Set.of()));
-    }
-
-    private Scenario advancedLanguageScenario() {
-        return new Scenario("10 - learned language profile", 30, DunnQuadrant.C1, 2, 30, 24,
-                Set.of(),
-                (scores, levels) -> {
-                    set(scores.get(IntelligenceType.VERBAL_LINGUISTIC), "score", new BigDecimal("4.20"));
-                    set(scores.get(IntelligenceType.VERBAL_LINGUISTIC), "feedbackCount", 6);
-                    set(scores.get(IntelligenceType.MUSICAL), "score", new BigDecimal("2.30"));
-                    set(levels.get(DevelopmentDomain.LANGUAGE), "level", (short) 2);
-                });
-    }
-
-    private Scenario scenario(String name, int age, DunnQuadrant quadrant, int anxiety, int budget,
-                              int pool, Set<Long> yesterday) {
-        return new Scenario(name, age, quadrant, anxiety, budget, pool,
-                yesterday, ScenarioConfiguration.NONE);
+    private static List<AgePeriod> loadAgePeriods() throws SQLException {
+        List<AgePeriod> result = new ArrayList<>();
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT min_age_months, max_age_months, target_domain
+                FROM developmental_period_tasks
+                ORDER BY min_age_months
+                """);
+             ResultSet rows = statement.executeQuery()) {
+            while (rows.next()) {
+                result.add(new AgePeriod(
+                        rows.getInt("min_age_months"),
+                        rows.getInt("max_age_months"),
+                        DevelopmentDomain.valueOf(rows.getString("target_domain"))));
+            }
+        }
+        return List.copyOf(result);
     }
 
     private record Scenario(
-            String name, int ageMonths, DunnQuadrant quadrant, int anxiety, int budgetMinutes,
-            int expectedPoolSize, Set<Long> yesterday, ScenarioConfiguration configure) {
+            String name, int ageMonths, DunnQuadrant quadrant, int anxiety, int budgetMax) {
     }
 
-    @FunctionalInterface
-    private interface ScenarioConfiguration {
-        ScenarioConfiguration NONE = (scores, levels) -> { };
-
-        void apply(Map<IntelligenceType, ChildIntelligenceScore> scores,
-                   Map<DevelopmentDomain, ChildDomainLevel> levels);
+    private record AgePeriod(int minAgeMonths, int maxAgeMonths, DevelopmentDomain domain) {
     }
 }
