@@ -81,7 +81,7 @@ class PostgreSqlMigrationIntegrationTest {
     }
 
     @Test
-    void appliesEveryMigrationThroughV32() throws SQLException {
+    void appliesEveryMigrationThroughV33() throws SQLException {
         MigrationHistory history = queryOne("""
                 SELECT count(*) AS migration_count,
                        min(version::integer) AS first_version,
@@ -96,11 +96,48 @@ class PostgreSqlMigrationIntegrationTest {
                 result.getBoolean("all_successful")));
 
         assertAll(
-                () -> assertEquals(32, migrationsExecuted),
-                () -> assertEquals(32, history.migrationCount()),
+                () -> assertEquals(33, migrationsExecuted),
+                () -> assertEquals(33, history.migrationCount()),
                 () -> assertEquals(1, history.firstVersion()),
-                () -> assertEquals(32, history.lastVersion()),
+                () -> assertEquals(33, history.lastVersion()),
                 () -> assertTrue(history.allSuccessful()));
+    }
+
+    @Test
+    void removesTransitionalV5BudgetMappingsScopesAndParameters() throws SQLException {
+        int oldBudgetColumns = queryInt("""
+                SELECT count(*)
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name IN ('parent_profiles', 'children', 'question_options')
+                  AND column_name = 'daily_time_budget_minutes'
+                """);
+        int householdQuestions = queryInt("SELECT count(*) FROM questions WHERE scope = 'HOUSEHOLD'");
+        int obsoleteParameters = queryInt("""
+                SELECT count(*)
+                FROM scoring_parameters
+                WHERE parameter_key IN (
+                    'freshness_penalty',
+                    'freshness_lookback_days',
+                    'attachment_multiplier',
+                    'high_separation_anxiety_threshold',
+                    'slot_candidate_limit',
+                    'explore_random_top_limit',
+                    'domain_initial_level',
+                    'harder_variation_streak_increment',
+                    'normal_variation_streak_increment',
+                    'easier_variation_streak_increment',
+                    'domain_level_up_streak_threshold',
+                    'domain_level_down_easier_threshold')
+                """);
+        String scopeConstraint = constraint("questions", "chk_questions_scope");
+
+        assertAll(
+                () -> assertEquals(0, oldBudgetColumns),
+                () -> assertEquals(0, householdQuestions),
+                () -> assertEquals(0, obsoleteParameters),
+                () -> assertFalse(scopeConstraint.contains("HOUSEHOLD")),
+                () -> assertTrue(scopeConstraint.contains("CHILD_BUDGET")));
     }
 
     @Test
