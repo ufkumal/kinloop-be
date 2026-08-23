@@ -80,7 +80,7 @@ class PostgreSqlMigrationIntegrationTest {
     }
 
     @Test
-    void appliesEveryMigrationThroughV24() throws SQLException {
+    void appliesEveryMigrationThroughV25() throws SQLException {
         MigrationHistory history = queryOne("""
                 SELECT count(*) AS migration_count,
                        min(version::integer) AS first_version,
@@ -95,10 +95,10 @@ class PostgreSqlMigrationIntegrationTest {
                 result.getBoolean("all_successful")));
 
         assertAll(
-                () -> assertEquals(24, migrationsExecuted),
-                () -> assertEquals(24, history.migrationCount()),
+                () -> assertEquals(25, migrationsExecuted),
+                () -> assertEquals(25, history.migrationCount()),
                 () -> assertEquals(1, history.firstVersion()),
-                () -> assertEquals(24, history.lastVersion()),
+                () -> assertEquals(25, history.lastVersion()),
                 () -> assertTrue(history.allSuccessful()));
     }
 
@@ -314,6 +314,27 @@ class PostgreSqlMigrationIntegrationTest {
                 () -> assertEquals("numeric", parameterValue.dataType()),
                 () -> assertEquals(20, parameterValue.numericPrecision()),
                 () -> assertEquals(4, parameterValue.numericScale()));
+    }
+
+    @Test
+    void installsIndependentLlmDifficultyHintParameters() throws SQLException {
+        Map<String, BigDecimal> actual = new LinkedHashMap<>();
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT parameter_key, value
+                FROM scoring_parameters
+                WHERE parameter_key IN (
+                    'llm_difficulty_hint_harder_delta',
+                    'llm_difficulty_hint_easier_delta')
+                """);
+             ResultSet result = statement.executeQuery()) {
+            while (result.next()) {
+                actual.put(result.getString("parameter_key"), result.getBigDecimal("value"));
+            }
+        }
+
+        assertEquals(2, actual.size());
+        assertDecimal("0.20", actual.get("llm_difficulty_hint_harder_delta"));
+        assertDecimal("-0.20", actual.get("llm_difficulty_hint_easier_delta"));
     }
 
     @Test

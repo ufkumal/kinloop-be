@@ -11,6 +11,8 @@ import com.kinloop.backend.entity.DailyPlanItem;
 import com.kinloop.backend.entity.DunnProfile;
 import com.kinloop.backend.entity.Feedback;
 import com.kinloop.backend.entity.FeedbackEffect;
+import com.kinloop.backend.entity.enums.DevelopmentDomain;
+import com.kinloop.backend.entity.enums.DifficultyHint;
 import com.kinloop.backend.entity.enums.DunnQuadrant;
 import com.kinloop.backend.entity.enums.FeedbackReason;
 import com.kinloop.backend.entity.enums.FeedbackType;
@@ -71,11 +73,8 @@ public class FeedbackLearningService {
                 .stream().collect(Collectors.toMap(ChildIntelligenceScore::getIntelligenceType, Function.identity()));
         applyGardnerLearning(feedback, item.getActivity(), request.feedbackType(), reason, scores, parameters);
 
-        ChildDomainLevel domainLevel = domainRepository.findByChildId(child.getId()).stream()
-                .filter(value -> value.getDomain() == item.getActivity().getTargetDomain())
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(
-                        "Missing domain level: " + item.getActivity().getTargetDomain()));
+        ChildDomainLevel domainLevel = requiredDomainLevel(
+                child.getId(), item.getActivity().getTargetDomain());
         applyDomainLearning(domainLevel, item.getActivity(), request.feedbackType(), parameters);
         item.complete();
 
@@ -152,6 +151,28 @@ public class FeedbackLearningService {
     ) {
         BigDecimal delta = domainDelta(domainLevel.getLevel(), activity.getDifficulty(), type, parameters);
         if (delta.signum() == 0) return;
+        applyDomainDelta(domainLevel, delta, parameters);
+    }
+
+    @Transactional
+    public void applyDifficultyHint(
+            Long childId,
+            DevelopmentDomain domain,
+            DifficultyHint hint
+    ) {
+        Map<String, BigDecimal> parameters = matchingParameters.load();
+        BigDecimal delta = switch (hint) {
+            case HARDER -> parameters.get("llm_difficulty_hint_harder_delta");
+            case EASIER -> parameters.get("llm_difficulty_hint_easier_delta");
+        };
+        applyDomainDelta(requiredDomainLevel(childId, domain), delta, parameters);
+    }
+
+    private void applyDomainDelta(
+            ChildDomainLevel domainLevel,
+            BigDecimal delta,
+            Map<String, BigDecimal> parameters
+    ) {
         domainLevel.applyFeedback(
                 delta,
                 parameters.get("level_up_threshold"),
@@ -159,6 +180,13 @@ public class FeedbackLearningService {
                 parameters.get("level_min").shortValueExact(),
                 parameters.get("level_max").shortValueExact(),
                 parameters.get("ceiling_counter_cap"));
+    }
+
+    private ChildDomainLevel requiredDomainLevel(Long childId, DevelopmentDomain domain) {
+        return domainRepository.findByChildId(childId).stream()
+                .filter(value -> value.getDomain() == domain)
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Missing domain level: " + domain));
     }
 
     private BigDecimal domainDelta(
