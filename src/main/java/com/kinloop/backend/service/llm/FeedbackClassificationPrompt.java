@@ -2,6 +2,9 @@ package com.kinloop.backend.service.llm;
 
 import com.kinloop.backend.entity.Activity;
 import com.kinloop.backend.entity.enums.FeedbackType;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 /**
  * System prompt and user-message format, verbatim from
@@ -9,8 +12,7 @@ import com.kinloop.backend.entity.enums.FeedbackType;
  * reads Turkish and produces English enum labels matching the real schema.
  */
 public final class FeedbackClassificationPrompt {
-
-    public static final String SYSTEM_PROMPT = """
+    private static final String INSTRUCTIONS = """
             Sen bir çocuk gelişimi uygulamasının geri bildirim çözümleyicisisin.
 
             Ebeveyn bir etkinlik sonrası üç seçenekten birini işaretledi ve isteğe bağlı
@@ -57,8 +59,23 @@ public final class FeedbackClassificationPrompt {
               "confidence": 0.0 ile 1.0 arası ondalık
             }
             """;
+    public static final String SYSTEM_PROMPT = INSTRUCTIONS
+            + "\n\nAŞAĞIDAKİ 32 ÖRNEĞİ SIRASIYLA REFERANS AL:\n\n"
+            + loadFewShotExamples();
 
     private FeedbackClassificationPrompt() {
+    }
+
+    private static String loadFewShotExamples() {
+        String resource = "/prompts/feedback-classification-few-shot.md";
+        try (InputStream input = FeedbackClassificationPrompt.class.getResourceAsStream(resource)) {
+            if (input == null) {
+                throw new IllegalStateException("Missing prompt resource: " + resource);
+            }
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Cannot load prompt resource: " + resource, e);
+        }
     }
 
     public static String buildUserMessage(Activity activity, FeedbackType feedbackType, String freeText) {

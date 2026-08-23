@@ -8,7 +8,7 @@ import com.kinloop.backend.entity.Child;
 import com.kinloop.backend.service.ActivityMatchingService;
 import com.kinloop.backend.service.ChildService;
 import com.kinloop.backend.service.CurrentParentProfileService;
-import com.kinloop.backend.service.FeedbackLearningService;
+import com.kinloop.backend.service.SynchronousFeedbackSubmissionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -26,7 +26,7 @@ public class DailyPlanController {
     private final CurrentParentProfileService currentParentProfileService;
     private final ChildService childService;
     private final ActivityMatchingService matchingService;
-    private final FeedbackLearningService feedbackLearningService;
+    private final SynchronousFeedbackSubmissionService feedbackSubmissionService;
 
     @GetMapping("/today")
     public DailyPlanResponse today(@PathVariable Long childId, Authentication authentication) {
@@ -53,6 +53,6 @@ public class DailyPlanController {
     ) {
         Long parentId = currentParentProfileService.currentParentProfileId(authentication);
         Child child = childService.getOwnedChild(childId, parentId);
-        return feedbackLearningService.submit(child, dailyPlanItemId, request);
+        return feedbackSubmissionService.submit(child, dailyPlanItemId, request);
     }
 }

@@ -31,4 +31,10 @@ public record ParsedClassification(
         return new ParsedClassification(
                 false, null, null, null, null, null, null, null, null, false);
     }
+
+    public ParsedClassification withConfidence(java.math.BigDecimal cappedConfidence) {
+        return new ParsedClassification(
+                valid, cappedConfidence, targetCorrection, secondaryHint, sensoryHint,
+                involvementHint, difficultyHint, situationHint, durationHint, conflict);
+    }
 }
