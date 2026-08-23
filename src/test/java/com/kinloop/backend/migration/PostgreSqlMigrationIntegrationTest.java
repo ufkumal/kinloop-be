@@ -80,7 +80,7 @@ class PostgreSqlMigrationIntegrationTest {
     }
 
     @Test
-    void appliesEveryMigrationThroughV27() throws SQLException {
+    void appliesEveryMigrationThroughV28() throws SQLException {
         MigrationHistory history = queryOne("""
                 SELECT count(*) AS migration_count,
                        min(version::integer) AS first_version,
@@ -95,10 +95,10 @@ class PostgreSqlMigrationIntegrationTest {
                 result.getBoolean("all_successful")));
 
         assertAll(
-                () -> assertEquals(27, migrationsExecuted),
-                () -> assertEquals(27, history.migrationCount()),
+                () -> assertEquals(28, migrationsExecuted),
+                () -> assertEquals(28, history.migrationCount()),
                 () -> assertEquals(1, history.firstVersion()),
-                () -> assertEquals(27, history.lastVersion()),
+                () -> assertEquals(28, history.lastVersion()),
                 () -> assertTrue(history.allSuccessful()));
     }
 
@@ -365,6 +365,29 @@ class PostgreSqlMigrationIntegrationTest {
         assertEquals(2, actual.size());
         assertDecimal("0.20", actual.get("llm_difficulty_hint_harder_delta"));
         assertDecimal("-0.20", actual.get("llm_difficulty_hint_easier_delta"));
+    }
+
+    @Test
+    void installsFeedbackSpecificConfidenceGateAndKeepsTheSharedDeltaCap() throws SQLException {
+        Map<String, BigDecimal> actual = new LinkedHashMap<>();
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT parameter_key, value
+                FROM scoring_parameters
+                WHERE parameter_key IN (
+                    'llm_feedback_confidence_threshold',
+                    'llm_signal_confidence_threshold',
+                    'llm_signal_max_absolute_delta')
+                """);
+             ResultSet result = statement.executeQuery()) {
+            while (result.next()) {
+                actual.put(result.getString("parameter_key"), result.getBigDecimal("value"));
+            }
+        }
+
+        assertEquals(3, actual.size());
+        assertDecimal("0.70", actual.get("llm_feedback_confidence_threshold"));
+        assertDecimal("0.60", actual.get("llm_signal_confidence_threshold"));
+        assertDecimal("0.30", actual.get("llm_signal_max_absolute_delta"));
     }
 
     @Test
