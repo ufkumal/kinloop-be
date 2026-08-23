@@ -2,6 +2,8 @@ package com.kinloop.backend.service.matching;
 
 import com.kinloop.backend.entity.Activity;
 import com.kinloop.backend.entity.ChildProfileSnapshot;
+import com.kinloop.backend.entity.ChildSensoryAdjustment;
+import com.kinloop.backend.entity.enums.InvolvementFilter;
 import com.kinloop.backend.entity.enums.DevelopmentDomain;
 import com.kinloop.backend.entity.enums.DunnQuadrant;
 import com.kinloop.backend.entity.enums.InvolvementType;
@@ -29,7 +31,7 @@ class ActivityScorerTest {
                 3, 3, 2, InvolvementType.BIRLIKTE, true);
 
         Long selectedActivityId = Stream.of(sweetSpot, frustrating)
-                .map(activity -> scorer.score(activity, profile, c1Profile(), DevelopmentDomain.LANGUAGE,
+                .map(activity -> scorer.score(activity, profile, c1Profile(), null, DevelopmentDomain.LANGUAGE,
                         neutralIntelligenceScores(), levelOneDomains(), parameters()))
                 .max(Comparator.comparing(ScoredActivity::rawScore))
                 .orElseThrow()
@@ -51,9 +53,9 @@ class ActivityScorerTest {
         levels.put(DevelopmentDomain.LANGUAGE,
                 new com.kinloop.backend.entity.ChildDomainLevel(1L, DevelopmentDomain.LANGUAGE, (short) 4));
 
-        ScoredActivity sweetSpot = scorer.score(withHarderVariation, profile, c1Profile(),
+        ScoredActivity sweetSpot = scorer.score(withHarderVariation, profile, c1Profile(), null,
                 DevelopmentDomain.SOCIAL_EMOTIONAL, neutralIntelligenceScores(), levels, parameters());
-        ScoredActivity atLevel = scorer.score(withoutHarderVariation, profile, c1Profile(),
+        ScoredActivity atLevel = scorer.score(withoutHarderVariation, profile, c1Profile(), null,
                 DevelopmentDomain.SOCIAL_EMOTIONAL, neutralIntelligenceScores(), levels, parameters());
 
         assertEquals(new java.math.BigDecimal("20"), sweetSpot.breakdown().get("Z"));
@@ -68,14 +70,29 @@ class ActivityScorerTest {
         Activity supervised = activity(122L, DevelopmentDomain.LANGUAGE, 1, (short) 10,
                 3, 3, 3, InvolvementType.GOZETIMLI, true);
 
-        ScoredActivity togetherScore = scorer.score(together, profile, c1Profile(), DevelopmentDomain.LANGUAGE,
+        ScoredActivity togetherScore = scorer.score(together, profile, c1Profile(), null, DevelopmentDomain.LANGUAGE,
                 neutralIntelligenceScores(), levelOneDomains(), parameters());
-        ScoredActivity supervisedScore = scorer.score(supervised, profile, c1Profile(), DevelopmentDomain.LANGUAGE,
+        ScoredActivity supervisedScore = scorer.score(supervised, profile, c1Profile(), null, DevelopmentDomain.LANGUAGE,
                 neutralIntelligenceScores(), levelOneDomains(), parameters());
 
         assertEquals(new java.math.BigDecimal("1.15"), togetherScore.breakdown().get("B"));
         assertEquals(java.math.BigDecimal.ONE, supervisedScore.breakdown().get("B"));
         assertFalse(togetherScore.breakdown().containsKey("T"));
+    }
+
+    @Test
+    void sensoryAdjustmentsModifyAndClampQuadrantTolerancesBeforeDistanceScoring() {
+        ChildProfileSnapshot profile = profile(2);
+        Activity activity = activity(131L, DevelopmentDomain.LANGUAGE, 1, (short) 10,
+                5, 1, 5, InvolvementType.BIRLIKTE, true);
+        ChildSensoryAdjustment adjustment = new ChildSensoryAdjustment(
+                1L, (short) 10, (short) -10, (short) 1, InvolvementFilter.RELAXED);
+
+        ScoredActivity scored = scorer.score(
+                activity, profile, c1Profile(), adjustment, DevelopmentDomain.LANGUAGE,
+                neutralIntelligenceScores(), levelOneDomains(), parameters());
+
+        assertEquals(new java.math.BigDecimal("3"), scored.breakdown().get("D"));
     }
 
     private ChildProfileSnapshot profile(int anxiety) {

@@ -80,7 +80,7 @@ class PostgreSqlMigrationIntegrationTest {
     }
 
     @Test
-    void appliesEveryMigrationThroughV25() throws SQLException {
+    void appliesEveryMigrationThroughV26() throws SQLException {
         MigrationHistory history = queryOne("""
                 SELECT count(*) AS migration_count,
                        min(version::integer) AS first_version,
@@ -95,11 +95,31 @@ class PostgreSqlMigrationIntegrationTest {
                 result.getBoolean("all_successful")));
 
         assertAll(
-                () -> assertEquals(25, migrationsExecuted),
-                () -> assertEquals(25, history.migrationCount()),
+                () -> assertEquals(26, migrationsExecuted),
+                () -> assertEquals(26, history.migrationCount()),
                 () -> assertEquals(1, history.firstVersion()),
-                () -> assertEquals(25, history.lastVersion()),
+                () -> assertEquals(26, history.lastVersion()),
                 () -> assertTrue(history.allSuccessful()));
+    }
+
+    @Test
+    void createsOptionalChildSensoryAdjustments() throws SQLException {
+        Map<String, ColumnMetadata> columns = columns(
+                "child_sensory_adjustments",
+                "child_id", "noise_adjustment", "visual_adjustment", "movement_adjustment",
+                "involvement_filter", "updated_at");
+
+        assertAll(
+                () -> assertEquals("bigint", columns.get("child_id").dataType()),
+                () -> assertRequiredColumn(columns, "noise_adjustment", "smallint", "0"),
+                () -> assertRequiredColumn(columns, "visual_adjustment", "smallint", "0"),
+                () -> assertRequiredColumn(columns, "movement_adjustment", "smallint", "0"),
+                () -> assertEquals("YES", columns.get("involvement_filter").nullable()),
+                () -> assertRequiredColumn(
+                        columns, "updated_at", "timestamp with time zone", "now()"),
+                () -> assertTrue(constraint(
+                        "child_sensory_adjustments",
+                        "chk_child_sensory_adjustments_involvement_filter").contains("RELAXED")));
     }
 
     @Test

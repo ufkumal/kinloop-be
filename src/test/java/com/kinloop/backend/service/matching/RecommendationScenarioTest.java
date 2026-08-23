@@ -67,13 +67,13 @@ class RecommendationScenarioTest {
                 .filter(activity -> activity.getMinAgeMonths() <= scenario.ageMonths())
                 .filter(activity -> activity.getMaxAgeMonths() >= scenario.ageMonths())
                 .filter(activity -> activity.getDurationMinutes() <= scenario.budgetMinutes())
-                .filter(activity -> eligibility.allows(activity, profile, parameters()))
+                .filter(activity -> eligibility.allows(activity, profile, null, parameters()))
                 .toList();
 
         DevelopmentDomain period = periodFor(scenario.ageMonths());
         DunnProfile dunn = dunnProfile(scenario.quadrant());
         List<ScoredActivity> preFreshnessScored = pool.stream()
-                .map(activity -> scorer.score(activity, profile, dunn, period,
+                .map(activity -> scorer.score(activity, profile, dunn, null, period,
                         intelligenceScores, domainLevels, parameters()))
                 .sorted(Comparator.comparing(ScoredActivity::rawScore).reversed()
                         .thenComparing(value -> value.activity().getId()))

@@ -2,13 +2,17 @@ package com.kinloop.backend.service.matching;
 
 import static com.kinloop.backend.service.matching.MatchingTestFixtures.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.kinloop.backend.entity.Activity;
 import com.kinloop.backend.entity.ChildProfileSnapshot;
+import com.kinloop.backend.entity.ChildSensoryAdjustment;
 import com.kinloop.backend.entity.enums.DevelopmentDomain;
 import com.kinloop.backend.entity.enums.DunnQuadrant;
 import com.kinloop.backend.entity.enums.FocusBand;
 import com.kinloop.backend.entity.enums.InvolvementType;
+import com.kinloop.backend.entity.enums.InvolvementFilter;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -32,7 +36,7 @@ class ActivityEligibilityPolicyTest {
                 3, 2, 2, InvolvementType.BIRLIKTE, false);
 
         List<Long> eligibleActivityIds = Stream.of(calm, physicallyActive, noisy)
-                .filter(activity -> policy.allows(activity, profile, parameters()))
+                .filter(activity -> policy.allows(activity, profile, null, parameters()))
                 .map(Activity::getId)
                 .toList();
 
@@ -54,10 +58,27 @@ class ActivityEligibilityPolicyTest {
                 1, 1, 1, InvolvementType.BIRLIKTE, false);
 
         List<Long> eligibleActivityIds = Stream.of(togetherShort, independentShort, togetherLong)
-                .filter(activity -> policy.allows(activity, profile, parameters()))
+                .filter(activity -> policy.allows(activity, profile, null, parameters()))
                 .map(Activity::getId)
                 .toList();
 
         assertEquals(List.of(211L), eligibleActivityIds);
+    }
+
+    @Test
+    void involvementAdjustmentOverridesSeparationAnxietyInBothDirections() {
+        Activity independent = activity(221L, DevelopmentDomain.LANGUAGE, 1, (short) 10,
+                1, 1, 1, InvolvementType.BAGIMSIZ, false);
+        ChildProfileSnapshot calm = new ChildProfileSnapshot();
+        calm.setSeparationAnxiety(2);
+        ChildProfileSnapshot anxious = new ChildProfileSnapshot();
+        anxious.setSeparationAnxiety(4);
+        ChildSensoryAdjustment strict = new ChildSensoryAdjustment(
+                1L, (short) 0, (short) 0, (short) 0, InvolvementFilter.STRICT);
+        ChildSensoryAdjustment relaxed = new ChildSensoryAdjustment(
+                1L, (short) 0, (short) 0, (short) 0, InvolvementFilter.RELAXED);
+
+        assertFalse(policy.allows(independent, calm, strict, parameters()));
+        assertTrue(policy.allows(independent, anxious, relaxed, parameters()));
     }
 }
