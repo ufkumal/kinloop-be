@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
@@ -80,7 +81,7 @@ class PostgreSqlMigrationIntegrationTest {
     }
 
     @Test
-    void appliesEveryMigrationThroughV31() throws SQLException {
+    void appliesEveryMigrationThroughV32() throws SQLException {
         MigrationHistory history = queryOne("""
                 SELECT count(*) AS migration_count,
                        min(version::integer) AS first_version,
@@ -95,10 +96,10 @@ class PostgreSqlMigrationIntegrationTest {
                 result.getBoolean("all_successful")));
 
         assertAll(
-                () -> assertEquals(31, migrationsExecuted),
-                () -> assertEquals(31, history.migrationCount()),
+                () -> assertEquals(32, migrationsExecuted),
+                () -> assertEquals(32, history.migrationCount()),
                 () -> assertEquals(1, history.firstVersion()),
-                () -> assertEquals(31, history.lastVersion()),
+                () -> assertEquals(32, history.lastVersion()),
                 () -> assertTrue(history.allSuccessful()));
     }
 
@@ -276,7 +277,27 @@ class PostgreSqlMigrationIntegrationTest {
                     HAVING count(*) >= 4
                 ) values_with_steps
                 """);
-        int activitiesWithOutcomes = queryInt("SELECT count(DISTINCT activity_id) FROM activity_outcomes");
+        int activitiesWithAtLeastThreeOutcomes = queryInt("""
+                SELECT count(*)
+                FROM (
+                    SELECT activity_id
+                    FROM activity_outcomes
+                    GROUP BY activity_id
+                    HAVING count(*) >= 3
+                ) values_with_outcomes
+                """);
+        int publicationReadyActivities = queryInt("""
+                SELECT count(*)
+                FROM activities a
+                JOIN activity_instructions i ON i.activity_id = a.id
+                WHERE a.status = 'PUBLISHED'
+                  AND a.secondary_intelligence IS NOT NULL
+                  AND a.secondary_intelligence <> a.target_intelligence
+                  AND btrim(i.easier_variation) <> ''
+                  AND btrim(i.harder_variation) <> ''
+                  AND a.difficulty BETWEEN 1 AND 4
+                  AND a.duration_minutes > 0
+                """);
 
         assertAll(
                 () -> assertEquals(243, pool.activityCount()),
@@ -286,9 +307,99 @@ class PostgreSqlMigrationIntegrationTest {
                 () -> assertEquals(243, pool.distinctIdCount()),
                 () -> assertEquals(243, instructionCount),
                 () -> assertEquals(243, activitiesWithAtLeastFourSteps),
-                () -> assertEquals(243, activitiesWithOutcomes),
+                () -> assertEquals(243, activitiesWithAtLeastThreeOutcomes),
+                () -> assertEquals(243, publicationReadyActivities),
                 () -> assertFalse(columnExists("activities", "is_scaffolded")),
                 () -> assertFalse(relationExists("v_scorable_activities")));
+    }
+
+    @Test
+    void blocksPublishingUntilAllContentRequirementsAreMet() throws SQLException {
+        long activityId = insertReturningLong("""
+                INSERT INTO activities (
+                    scope, status, title, min_age_months, max_age_months,
+                    target_intelligence, secondary_intelligence, target_domain,
+                    difficulty, duration_minutes, involvement_type,
+                    noise_load, visual_load, physical_intensity
+                ) VALUES (
+                    'HOME', 'DRAFT', 'Publication gate test', 24, 48,
+                    'MUSICAL', NULL, 'COGNITIVE', 2, 10, 'BIRLIKTE', 1, 1, 1
+                )
+                RETURNING id
+                """);
+
+        try {
+            executeUpdate("""
+                    INSERT INTO activity_instructions (
+                        activity_id, easier_variation, harder_variation
+                    ) VALUES (?, 'Make it easier', 'Make it harder')
+                    """, activityId);
+            executeUpdate("""
+                    INSERT INTO activity_steps (activity_id, step_no, text) VALUES
+                        (?, 1, 'Step one'), (?, 2, 'Step two'),
+                        (?, 3, 'Step three'), (?, 4, 'Step four')
+                    """, activityId, activityId, activityId, activityId);
+            executeUpdate("""
+                    INSERT INTO activity_outcomes (activity_id, outcome, display_order) VALUES
+                        (?, 'Outcome one', 1), (?, 'Outcome two', 2), (?, 'Outcome three', 3)
+                    """, activityId, activityId, activityId);
+
+            assertPublicationRejected(activityId, "secondary_intelligence is required");
+
+            executeUpdate("UPDATE activities SET secondary_intelligence = 'NATURALISTIC' WHERE id = ?",
+                    activityId);
+            executeUpdate("UPDATE activity_instructions SET easier_variation = '  ' WHERE activity_id = ?",
+                    activityId);
+            assertPublicationRejected(activityId, "easier_variation is required");
+
+            executeUpdate("""
+                    UPDATE activity_instructions
+                    SET easier_variation = 'Make it easier', harder_variation = ''
+                    WHERE activity_id = ?
+                    """, activityId);
+            assertPublicationRejected(activityId, "harder_variation is required");
+
+            executeUpdate("""
+                    UPDATE activity_instructions SET harder_variation = 'Make it harder'
+                    WHERE activity_id = ?
+                    """, activityId);
+            executeUpdate("DELETE FROM activity_steps WHERE activity_id = ? AND step_no = 4", activityId);
+            assertPublicationRejected(activityId, "at least 4 steps are required");
+
+            executeUpdate("""
+                    INSERT INTO activity_steps (activity_id, step_no, text)
+                    VALUES (?, 4, 'Step four')
+                    """, activityId);
+            executeUpdate("DELETE FROM activity_outcomes WHERE activity_id = ? AND display_order = 3",
+                    activityId);
+            assertPublicationRejected(activityId, "at least 3 outcomes are required");
+
+            executeUpdate("""
+                    INSERT INTO activity_outcomes (activity_id, outcome, display_order)
+                    VALUES (?, 'Outcome three', 3)
+                    """, activityId);
+            assertEquals(1, executeUpdate("UPDATE activities SET status = 'PUBLISHED' WHERE id = ?",
+                    activityId));
+
+            String validationFunction = queryOne("""
+                    SELECT pg_get_functiondef('validate_published_activity()'::regprocedure)
+                    """, result -> result.getString(1));
+            assertAll(
+                    () -> assertTrue(validationFunction.contains("target_domain NOT IN")),
+                    () -> assertTrue(validationFunction.contains("target_intelligence NOT IN")),
+                    () -> assertTrue(validationFunction.contains("target_intelligence = NEW.secondary_intelligence")),
+                    () -> assertTrue(validationFunction.contains("difficulty NOT BETWEEN 1 AND 4")),
+                    () -> assertTrue(validationFunction.contains("duration_minutes IS NULL")),
+                    () -> assertEquals(1, queryInt("""
+                            SELECT count(*)
+                            FROM pg_trigger
+                            WHERE tgrelid = 'activities'::regclass
+                              AND tgname = 'trg_activities_validate_published'
+                              AND NOT tgisinternal
+                            """)));
+        } finally {
+            executeUpdate("DELETE FROM activities WHERE id = ?", activityId);
+        }
     }
 
     @Test
@@ -561,6 +672,27 @@ class PostgreSqlMigrationIntegrationTest {
 
     private static int queryInt(String sql, Object... parameters) throws SQLException {
         return queryOne(sql, result -> result.getInt(1), parameters);
+    }
+
+    private static long insertReturningLong(String sql, Object... parameters) throws SQLException {
+        return queryOne(sql, result -> result.getLong(1), parameters);
+    }
+
+    private static int executeUpdate(String sql, Object... parameters) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            for (int index = 0; index < parameters.length; index++) {
+                statement.setObject(index + 1, parameters[index]);
+            }
+            return statement.executeUpdate();
+        }
+    }
+
+    private static void assertPublicationRejected(long activityId, String expectedMessage) {
+        SQLException exception = assertThrows(SQLException.class,
+                () -> executeUpdate("UPDATE activities SET status = 'PUBLISHED' WHERE id = ?", activityId));
+        assertAll(
+                () -> assertEquals("23514", exception.getSQLState()),
+                () -> assertTrue(exception.getMessage().contains(expectedMessage), exception.getMessage()));
     }
 
     private static <T> T queryOne(String sql, RowMapper<T> mapper, Object... parameters)
