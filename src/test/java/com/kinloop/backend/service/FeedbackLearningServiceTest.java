@@ -1,6 +1,7 @@
 package com.kinloop.backend.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -17,6 +18,7 @@ import com.kinloop.backend.entity.ChildProfileSnapshot;
 import com.kinloop.backend.entity.DailyPlan;
 import com.kinloop.backend.entity.DailyPlanItem;
 import com.kinloop.backend.entity.DunnProfile;
+import com.kinloop.backend.entity.Feedback;
 import com.kinloop.backend.entity.enums.DevelopmentDomain;
 import com.kinloop.backend.entity.enums.DunnQuadrant;
 import com.kinloop.backend.entity.enums.FeedbackReason;
@@ -41,6 +43,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -95,7 +98,7 @@ class FeedbackLearningServiceTest {
     @Test
     void likedUpdatesGardnerLedgersAndDifficultySensitiveStreakIndependently() {
         ActivityFeedbackResponse response = service.submit(
-                child, 11L, new SubmitActivityFeedbackRequest(FeedbackType.LIKED));
+                child, 11L, new SubmitActivityFeedbackRequest(FeedbackType.LIKED, null));
 
         assertEquals(0, new BigDecimal("3.30").compareTo(target.getScore()));
         assertEquals(0, new BigDecimal("3.15").compareTo(secondary.getScore()));
@@ -109,7 +112,7 @@ class FeedbackLearningServiceTest {
 
     @Test
     void struggledLeavesGardnerScoresUntouchedAndPenalizesOnlyTheDomainStreak() {
-        service.submit(child, 11L, new SubmitActivityFeedbackRequest(FeedbackType.STRUGGLED));
+        service.submit(child, 11L, new SubmitActivityFeedbackRequest(FeedbackType.STRUGGLED, null));
 
         assertEquals(0, new BigDecimal("3.00").compareTo(target.getScore()));
         assertEquals(1, target.getFeedbackCount());
@@ -120,7 +123,7 @@ class FeedbackLearningServiceTest {
     @Test
     void dislikedInterestReducesOnlyTargetGardnerScore() {
         ActivityFeedbackResponse response = service.submit(
-                child, 11L, new SubmitActivityFeedbackRequest(FeedbackType.DISLIKED));
+                child, 11L, new SubmitActivityFeedbackRequest(FeedbackType.DISLIKED, null));
 
         assertEquals(FeedbackReason.INTEREST, response.resolvedReason());
         assertEquals(0, new BigDecimal("2.85").compareTo(target.getScore()));
@@ -138,12 +141,32 @@ class FeedbackLearningServiceTest {
         when(dunnRepository.findById(DunnQuadrant.C3)).thenReturn(Optional.of(dunn));
 
         ActivityFeedbackResponse response = service.submit(
-                child, 11L, new SubmitActivityFeedbackRequest(FeedbackType.DISLIKED));
+                child, 11L, new SubmitActivityFeedbackRequest(FeedbackType.DISLIKED, null));
 
         assertEquals(FeedbackReason.SENSORY, response.resolvedReason());
         assertEquals(0, new BigDecimal("3.00").compareTo(target.getScore()));
         assertEquals(0, BigDecimal.ZERO.compareTo(domainLevel.getStreak()));
         verify(feedbackEffectRepository, never()).save(any());
+    }
+
+    @Test
+    void trimsFreeTextBeforeSavingFeedback() {
+        service.submit(child, 11L,
+                new SubmitActivityFeedbackRequest(FeedbackType.STRUGGLED, "  Needed a little help.  "));
+
+        ArgumentCaptor<Feedback> captor = ArgumentCaptor.forClass(Feedback.class);
+        verify(feedbackRepository).save(captor.capture());
+        assertEquals("Needed a little help.", captor.getValue().getFreeText());
+    }
+
+    @Test
+    void storesBlankFreeTextAsNull() {
+        service.submit(child, 11L,
+                new SubmitActivityFeedbackRequest(FeedbackType.STRUGGLED, "  \t\n  "));
+
+        ArgumentCaptor<Feedback> captor = ArgumentCaptor.forClass(Feedback.class);
+        verify(feedbackRepository).save(captor.capture());
+        assertNull(captor.getValue().getFreeText());
     }
 
     private Activity activity(int difficulty, InvolvementType involvementType) {

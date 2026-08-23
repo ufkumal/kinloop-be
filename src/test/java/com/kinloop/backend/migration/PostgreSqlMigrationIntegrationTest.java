@@ -80,7 +80,7 @@ class PostgreSqlMigrationIntegrationTest {
     }
 
     @Test
-    void appliesEveryMigrationThroughV22() throws SQLException {
+    void appliesEveryMigrationThroughV23() throws SQLException {
         MigrationHistory history = queryOne("""
                 SELECT count(*) AS migration_count,
                        min(version::integer) AS first_version,
@@ -95,11 +95,21 @@ class PostgreSqlMigrationIntegrationTest {
                 result.getBoolean("all_successful")));
 
         assertAll(
-                () -> assertEquals(22, migrationsExecuted),
-                () -> assertEquals(22, history.migrationCount()),
+                () -> assertEquals(23, migrationsExecuted),
+                () -> assertEquals(23, history.migrationCount()),
                 () -> assertEquals(1, history.firstVersion()),
-                () -> assertEquals(22, history.lastVersion()),
+                () -> assertEquals(23, history.lastVersion()),
                 () -> assertTrue(history.allSuccessful()));
+    }
+
+    @Test
+    void addsNullableFeedbackFreeTextColumn() throws SQLException {
+        ColumnMetadata freeText = column("feedback", "free_text");
+
+        assertAll(
+                () -> assertEquals("text", freeText.dataType()),
+                () -> assertEquals("YES", freeText.nullable()),
+                () -> assertNull(freeText.columnDefault()));
     }
 
     @Test

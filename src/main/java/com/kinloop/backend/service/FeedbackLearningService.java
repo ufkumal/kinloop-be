@@ -63,8 +63,9 @@ public class FeedbackLearningService {
         ChildProfileSnapshot profile = profileRepository.findByChildIdAndCurrentTrue(child.getId())
                 .orElseThrow(() -> new IllegalStateException("Child onboarding profile is missing"));
         FeedbackReason reason = resolveReason(request.feedbackType(), item.getActivity(), profile, parameters);
+        String freeText = normalizeFreeText(request.freeText());
         Feedback feedback = feedbackRepository.save(
-                new Feedback(child.getId(), item, request.feedbackType(), reason));
+                new Feedback(child.getId(), item, request.feedbackType(), reason, freeText));
 
         Map<IntelligenceType, ChildIntelligenceScore> scores = intelligenceRepository.findByChildId(child.getId())
                 .stream().collect(Collectors.toMap(ChildIntelligenceScore::getIntelligenceType, Function.identity()));
@@ -81,6 +82,12 @@ public class FeedbackLearningService {
         return new ActivityFeedbackResponse(
                 feedback.getId(), item.getId(), request.feedbackType(), reason,
                 domainLevel.getDomain(), domainLevel.getLevel(), domainLevel.getStreak());
+    }
+
+    private String normalizeFreeText(String freeText) {
+        if (freeText == null) return null;
+        String trimmed = freeText.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private void applyGardnerLearning(

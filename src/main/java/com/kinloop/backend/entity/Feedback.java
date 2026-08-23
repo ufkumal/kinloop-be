@@ -40,6 +40,8 @@ public class Feedback {
     @Enumerated(EnumType.STRING)
     @Column(name = "resolved_reason", length = 15)
     private FeedbackReason resolvedReason;
+    @Column(name = "free_text", columnDefinition = "TEXT")
+    private String freeText;
     @Column(nullable = false)
     private boolean accepted = true;
     @Column(name = "bulk_flag", nullable = false)
@@ -52,12 +54,14 @@ public class Feedback {
             Long childId,
             DailyPlanItem dailyPlanItem,
             FeedbackType feedbackType,
-            FeedbackReason resolvedReason
+            FeedbackReason resolvedReason,
+            String freeText
     ) {
         this.childId = childId;
         this.dailyPlanItem = dailyPlanItem;
         this.activity = dailyPlanItem.getActivity();
         this.feedbackType = feedbackType;
         this.resolvedReason = resolvedReason;
+        this.freeText = freeText;
     }
 }
