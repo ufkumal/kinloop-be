@@ -12,8 +12,7 @@ public interface DailyPlanRepository extends JpaRepository<DailyPlan, Long> {
     long countByChildId(Long childId);
 
     @EntityGraph(attributePaths = {
-            "items", "items.activity", "items.activity.instruction",
-            "items.activity.steps", "items.activity.materials", "items.activity.outcomes"
+            "items", "items.activity", "items.activity.instruction"
     })
     Optional<DailyPlan> findByChildIdAndPlanDate(Long childId, LocalDate date);
 
