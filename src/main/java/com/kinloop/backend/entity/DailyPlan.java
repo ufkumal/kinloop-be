@@ -87,14 +87,27 @@ public class DailyPlan {
     }
 
     public void select(Long activityId) {
-        DailyPlanItem selected = items.stream()
+        DailyPlanItem selected = item(activityId);
+        prepareSelection(activityId);
+        selected.select();
+    }
+
+    /**
+     * Clears an unfinished selection before activating another item. Keeping
+     * this as a separate step lets persistence flush the old active row before
+     * setting the new one, which is required by the partial unique index.
+     */
+    public void prepareSelection(Long activityId) {
+        DailyPlanItem selected = item(activityId);
+        items.stream()
+                .filter(item -> item != selected && item.isSelected())
+                .forEach(DailyPlanItem::unselect);
+    }
+
+    private DailyPlanItem item(Long activityId) {
+        return items.stream()
                 .filter(item -> item.getActivity().getId().equals(activityId))
                 .findFirst()
                 .orElseThrow(() -> new ActivityNotInDailyPlanException(activityId));
-
-        items.stream()
-                .filter(item -> item != selected)
-                .forEach(DailyPlanItem::unselect);
-        selected.select();
     }
 }

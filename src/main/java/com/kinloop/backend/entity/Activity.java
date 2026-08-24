@@ -4,6 +4,8 @@ import com.kinloop.backend.entity.enums.*;
 import jakarta.persistence.*;
 
 import java.time.OffsetDateTime;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -54,4 +56,13 @@ public class Activity {
     private OffsetDateTime deletedAt;
     @OneToOne(mappedBy = "activity")
     private ActivityInstruction instruction;
+    @OneToMany(mappedBy = "activity", fetch = FetchType.LAZY)
+    @OrderBy("stepNo ASC")
+    private Set<ActivityStep> steps = new LinkedHashSet<>();
+    @OneToMany(mappedBy = "activity", fetch = FetchType.LAZY)
+    @OrderBy("displayOrder ASC, id ASC")
+    private Set<ActivityMaterial> materials = new LinkedHashSet<>();
+    @OneToMany(mappedBy = "activity", fetch = FetchType.LAZY)
+    @OrderBy("displayOrder ASC, id ASC")
+    private Set<ActivityOutcome> outcomes = new LinkedHashSet<>();
 }

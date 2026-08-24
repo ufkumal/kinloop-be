@@ -56,7 +56,7 @@ public class DailyPlanItem {
     }
 
     public boolean isSelected() {
-        return selectedAt != null;
+        return selectedAt != null && completedAt == null;
     }
 
     public boolean isCompleted() {
@@ -68,7 +68,7 @@ public class DailyPlanItem {
     }
 
     void select() {
-        selectedAt = OffsetDateTime.now();
+        if (selectedAt == null) selectedAt = OffsetDateTime.now();
     }
 
     void unselect() {

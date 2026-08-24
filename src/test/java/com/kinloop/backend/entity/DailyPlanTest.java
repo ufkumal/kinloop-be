@@ -2,6 +2,7 @@ package com.kinloop.backend.entity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -54,6 +55,23 @@ class DailyPlanTest {
 
         plan.select(2L);
         assertFalse(plan.getItems().get(0).isSelected());
+        assertTrue(plan.getItems().get(1).isSelected());
+    }
+
+    @Test
+    void completedSelectionKeepsItsHistoryWhenAnotherActivityIsSelected() {
+        DailyPlan plan = new DailyPlan(10L, LocalDate.now());
+        plan.add(activity(1L), PlanSlotType.STRENGTHEN, BigDecimal.ONE);
+        plan.add(activity(2L), PlanSlotType.DEVELOP, BigDecimal.TEN);
+
+        plan.select(1L);
+        DailyPlanItem completed = plan.getItems().getFirst();
+        completed.complete();
+        plan.select(2L);
+
+        assertNotNull(completed.getSelectedAt());
+        assertTrue(completed.isCompleted());
+        assertFalse(completed.isSelected());
         assertTrue(plan.getItems().get(1).isSelected());
     }
 

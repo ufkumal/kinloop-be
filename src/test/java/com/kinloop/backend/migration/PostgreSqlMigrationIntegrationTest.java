@@ -81,7 +81,7 @@ class PostgreSqlMigrationIntegrationTest {
     }
 
     @Test
-    void appliesEveryMigrationThroughV33() throws SQLException {
+    void appliesEveryMigrationThroughV35() throws SQLException {
         MigrationHistory history = queryOne("""
                 SELECT count(*) AS migration_count,
                        min(version::integer) AS first_version,
@@ -96,11 +96,47 @@ class PostgreSqlMigrationIntegrationTest {
                 result.getBoolean("all_successful")));
 
         assertAll(
-                () -> assertEquals(33, migrationsExecuted),
-                () -> assertEquals(33, history.migrationCount()),
+                () -> assertEquals(35, migrationsExecuted),
+                () -> assertEquals(35, history.migrationCount()),
                 () -> assertEquals(1, history.firstVersion()),
-                () -> assertEquals(33, history.lastVersion()),
+                () -> assertEquals(35, history.lastVersion()),
                 () -> assertTrue(history.allSuccessful()));
+    }
+
+    @Test
+    void allowsOnlyOneUnfinishedSelectionPerDailyPlan() throws SQLException {
+        String indexDefinition = queryOne("""
+                SELECT indexdef
+                FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND indexname = 'uq_daily_plan_items_selected_per_plan'
+                """, result -> result.getString("indexdef"));
+
+        assertAll(
+                () -> assertTrue(indexDefinition.contains("selected_at IS NOT NULL")),
+                () -> assertTrue(indexDefinition.contains("completed_at IS NULL")));
+    }
+
+    @Test
+    void removesOtherGenderIdentityOption() throws SQLException {
+        int otherOptions = queryInt("""
+                SELECT count(*)
+                FROM question_options qo
+                JOIN questions q ON q.id = qo.question_id
+                WHERE q.code = 'Q8'
+                  AND qo.code = 'OTHER'
+                """);
+        int undisclosedDisplayOrder = queryInt("""
+                SELECT qo.display_order
+                FROM question_options qo
+                JOIN questions q ON q.id = qo.question_id
+                WHERE q.code = 'Q8'
+                  AND qo.code = 'UNDISCLOSED'
+                """);
+
+        assertAll(
+                () -> assertEquals(0, otherOptions),
+                () -> assertEquals(3, undisclosedDisplayOrder));
     }
 
     @Test

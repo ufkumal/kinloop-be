@@ -11,10 +11,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.kinloop.backend.dto.matching.DailyActivityResponse;
 import com.kinloop.backend.dto.matching.DailyPlanResponse;
+import com.kinloop.backend.dto.matching.ActivityMaterialResponse;
+import com.kinloop.backend.dto.matching.ActivityOutcomeResponse;
+import com.kinloop.backend.dto.matching.ActivityStepResponse;
 import com.kinloop.backend.dto.feedback.ActivityFeedbackResponse;
 import com.kinloop.backend.entity.Child;
 import com.kinloop.backend.entity.enums.DevelopmentDomain;
 import com.kinloop.backend.entity.enums.FeedbackType;
+import com.kinloop.backend.entity.enums.IntelligenceType;
+import com.kinloop.backend.entity.enums.InvolvementType;
 import com.kinloop.backend.exception.CustomAccessDeniedHandler;
 import com.kinloop.backend.security.CustomAuthenticationEntryPoint;
 import com.kinloop.backend.security.JwtService;
@@ -49,10 +54,18 @@ class DailyPlanControllerTest {
     @Test
     void todayExposesV6PlanBookkeepingAndItemFlags() throws Exception {
         DailyActivityResponse activity = new DailyActivityResponse(
-                21L, "Build a tower", "Use blocks", (short) 12, "DEVELOP", BigDecimal.TEN,
+                56L, 21L, "Build a tower", "Use blocks", 24, 48,
+                IntelligenceType.LOGICAL_MATHEMATICAL, IntelligenceType.VISUAL_SPATIAL,
+                DevelopmentDomain.COGNITIVE, (short) 2, (short) 12, InvolvementType.BIRLIKTE,
+                (short) 1, (short) 2, (short) 2, "DEVELOP", BigDecimal.TEN,
                 "Start together", "Practice planning", "Supports sequencing",
                 "Use fewer blocks", "Add a constraint", "Notice persistence",
-                false, true, false
+                "Use large blocks", "Put blocks away",
+                List.of(new ActivityStepResponse((short) 1, "Stack two blocks")),
+                List.of(new ActivityMaterialResponse(
+                        "Blocks", "TOY", "6", false, 1, "Prefer large blocks")),
+                List.of(new ActivityOutcomeResponse((short) 1, "Practices planning")),
+                false, true, false, false, null, null
         );
         DailyPlanResponse response = new DailyPlanResponse(
                 7L, 9L, LocalDate.of(2026, 8, 22), 25, 35, 24, 36, (short) 2,
@@ -72,6 +85,11 @@ class DailyPlanControllerTest {
                 .andExpect(jsonPath("$.fallbackLevel").value(2))
                 .andExpect(jsonPath("$.state").value("READY"))
                 .andExpect(jsonPath("$.showOnboardingReminder").value(true))
+                .andExpect(jsonPath("$.activities[0].dailyPlanItemId").value(56))
+                .andExpect(jsonPath("$.activities[0].safetyNotes").value("Use large blocks"))
+                .andExpect(jsonPath("$.activities[0].steps[0].text").value("Stack two blocks"))
+                .andExpect(jsonPath("$.activities[0].materials[0].name").value("Blocks"))
+                .andExpect(jsonPath("$.activities[0].outcomes[0].outcome").value("Practices planning"))
                 .andExpect(jsonPath("$.activities[0].withinBudget").value(false))
                 .andExpect(jsonPath("$.activities[0].repeatNotice").value(true));
     }
