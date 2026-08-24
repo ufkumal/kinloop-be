@@ -1,0 +1,1248 @@
+<title>Sakin Havuz Migration'ları</title>
+<style>
+  :root {
+    --paper:    #f6f9f8;
+    --card:     #ffffff;
+    --ink:      #10201f;
+    --ink-soft: #4d605d;
+    --rule:     #d9e4e1;
+    --accent:   #0d6d64;
+    --accent-w: #e3f0ed;
+    --warn:     #9a3412;
+    --warn-w:   #fbeee7;
+    --ok:       #156b3f;
+    --code-bg:  #0f1c1b;
+    --code-fg:  #d7e6e2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:    #0b1413;
+      --card:     #111e1c;
+      --ink:      #e6efec;
+      --ink-soft: #96aba7;
+      --rule:     #22403c;
+      --accent:   #5cc6b6;
+      --accent-w: #12302c;
+      --warn:     #f0a882;
+      --warn-w:   #2e1a12;
+      --ok:       #7fd0a3;
+      --code-bg:  #08110f;
+      --code-fg:  #cfe3de;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:    #0b1413;
+    --card:     #111e1c;
+    --ink:      #e6efec;
+    --ink-soft: #96aba7;
+    --rule:     #22403c;
+    --accent:   #5cc6b6;
+    --accent-w: #12302c;
+    --warn:     #f0a882;
+    --warn-w:   #2e1a12;
+    --ok:       #7fd0a3;
+    --code-bg:  #08110f;
+    --code-fg:  #cfe3de;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 54rem;
+    margin: 0 auto;
+    padding: 4rem 1.6rem 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  h1, h2, h3 {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    font-weight: 600;
+    text-wrap: balance;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  h1 { font-size: clamp(2rem, 4.4vw, 2.85rem); line-height: 1.14; }
+  h2 { font-size: 1.5rem; line-height: 1.25; }
+  h3 { font-size: 1.13rem; line-height: 1.3; }
+
+  p, li { margin: 0; }
+  section { display: flex; flex-direction: column; gap: 1.1rem; }
+  section > h2 { padding-bottom: .6rem; border-bottom: 2px solid var(--rule); }
+
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .74rem;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 .85rem;
+  }
+  .lede { font-size: 1.12rem; color: var(--ink-soft); max-width: 44rem; }
+  .muted { color: var(--ink-soft); }
+
+  header { border-bottom: 3px solid var(--ink); padding-bottom: 2rem; }
+  header .meta {
+    margin-top: 1.4rem;
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .8rem;
+    color: var(--ink-soft);
+    display: flex; flex-wrap: wrap; gap: .4rem 1.5rem;
+  }
+
+  ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1rem; counter-reset: s; }
+  ol.steps > li {
+    counter-increment: s;
+    display: grid; grid-template-columns: 2.1rem 1fr; gap: 1rem; align-items: start;
+    background: var(--card); border: 1px solid var(--rule); border-radius: 3px; padding: 1rem 1.1rem;
+  }
+  ol.steps > li::before {
+    content: counter(s);
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .95rem; font-weight: 700; color: var(--accent);
+    border-right: 1px solid var(--rule); padding-right: .8rem; line-height: 1.55;
+  }
+  ol.steps code { font-size: .87em; }
+
+  .callout {
+    border-left: 4px solid var(--warn);
+    background: var(--warn-w);
+    padding: 1.1rem 1.25rem;
+    display: flex; flex-direction: column; gap: .6rem;
+    border-radius: 0 3px 3px 0;
+  }
+  .callout h3 { color: var(--warn); font-size: 1.02rem; }
+
+  .note {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-w);
+    padding: 1.1rem 1.25rem;
+    display: flex; flex-direction: column; gap: .6rem;
+    border-radius: 0 3px 3px 0;
+  }
+
+  pre {
+    margin: 0;
+    background: var(--code-bg);
+    color: var(--code-fg);
+    padding: 1.15rem 1.3rem;
+    border-radius: 3px;
+    overflow-x: auto;
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .8rem;
+    line-height: 1.6;
+    tab-size: 4;
+  }
+  pre.tall { max-height: 30rem; overflow-y: auto; }
+  code {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .88em;
+    background: var(--accent-w);
+    color: var(--ink);
+    padding: .08em .34em;
+    border-radius: 2px;
+  }
+  pre code { background: none; padding: 0; color: inherit; font-size: 1em; }
+
+  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 3px; background: var(--card); }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  th, td { text-align: left; padding: .62rem .9rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th {
+    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .72rem; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--ink-soft); font-weight: 600; background: var(--paper);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  th.num { text-align: right; }
+
+  .pill {
+    display: inline-block; font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .7rem; letter-spacing: .06em; text-transform: uppercase;
+    padding: .16em .5em; border-radius: 2px; white-space: nowrap;
+  }
+  .pill.ok   { background: var(--accent-w); color: var(--ok); }
+  .pill.bad  { background: var(--warn-w);  color: var(--warn); }
+  .pill.warn { background: var(--warn-w);  color: var(--warn); }
+
+  details {
+    border: 1px solid var(--rule); border-radius: 3px; background: var(--card); padding: 0;
+  }
+  details > summary {
+    cursor: pointer; padding: .85rem 1.1rem; font-weight: 600;
+    list-style: none; display: flex; align-items: center; gap: .6rem;
+  }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before { content: "▸"; color: var(--accent); font-size: .9em; }
+  details[open] > summary::before { content: "▾"; }
+  details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  details .body { padding: 0 1.1rem 1.1rem; }
+
+  ul.plain { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: .5rem; }
+
+  footer {
+    border-top: 2px solid var(--rule); padding-top: 1.6rem;
+    font-size: .92rem; color: var(--ink-soft);
+    display: flex; flex-direction: column; gap: .7rem;
+  }
+
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Kinloop · veritabanı devri</p>
+  <h1>Sakin Havuz Migration'ları</h1>
+  <p class="lede">Korunmacı duyusal tipteki ve ayrılık kaygısı yüksek çocuklara plan çıkmaması sorununu
+  kapatan iki migration. Repoya eklenmeleri yeterli; kod değişikliği gerekmiyor.</p>
+  <div class="meta">
+    <span>Taban: <code>f0192ec</code> (PR #20)</span>
+    <span>Lokalde doğrulandı: 16 Ağustos 2026</span>
+    <span>Java kaynak değişikliği: yok</span>
+  </div>
+</header>
+
+<section>
+  <h2>Ne yapılacak</h2>
+  <ol class="steps">
+    <li><strong>V17'yi ekleyin.</strong> <code>src/main/resources/db/migration/V17__relocate_base_activity_ids_129_135.sql</code> — aşağıdaki kaynak. Temel seed'in 129-135'teki 7 etkinliğini boş id'lere taşır.</li>
+    <li><strong>V18'i ekleyin.</strong> <code>src/main/resources/db/migration/V18__kidloop_test_activities_calm_pool.sql</code> — Gülçin'in gönderdiği sakin havuz dosyası, içeriği değişmedi. Dosya <code>V10__</code> adıyla geldi; V10 repoda dolu olduğu için V18 oldu.</li>
+    <li><strong>Uygulamayı yeniden başlatın.</strong> Flyway ikisini sırayla uygular. Sonuç 162 etkinlik olmalı.</li>
+  </ol>
+
+  <div class="callout">
+    <h3>Sıra kritik: önce V17, sonra V18</h3>
+    <p>V17 çalışmadan V18 uygulanırsa dosyadaki <code>ON CONFLICT (id) DO UPDATE</code>
+    temel seed'in 7 etkinliğini <strong>sessizce üzerine yazar</strong>. Toplam 162 yerine 155 olur
+    ve hata vermez. Bu ilk denememde bizzat oluştu.</p>
+    <p class="muted">Eğer bu veritabanına dosya daha önce V10 adıyla uygulandıysa 7 etkinlik zaten
+    kaybolmuş demektir; V17 onları geri getiremez, çünkü taşıyacağı satırlar artık yok.
+    O durumda veritabanının sıfırdan kurulması gerekir.</p>
+  </div>
+</section>
+
+<section>
+  <h2>V17 neden gerekli</h2>
+  <p>Temel seed <code>V10__kidloop_128_home_activities.sql</code> 128 etkinlik içeriyor, ama id aralığı
+  <strong>1..135</strong>: şu yedi id boş bırakılmış — <code>73, 76, 84, 90, 97, 120, 121</code>.
+  Bu yüzden temel seed 129-135'i de kullanıyor.</p>
+  <p>Sakin havuz ise 129-162 aralığını istiyor. Çakışan yedi etkinlik:</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th class="num">Eski id</th><th>Temel seed etkinliği</th><th class="num">Yeni id</th></tr></thead>
+      <tbody>
+        <tr><td class="num">129</td><td>Kendi hikâye kitabını yap 4 sayfa</td><td class="num">73</td></tr>
+        <tr><td class="num">130</td><td>Sessiz sudoku renkli 4x4</td><td class="num">76</td></tr>
+        <tr><td class="num">131</td><td>Duygu termometresi bugünü ölç</td><td class="num">84</td></tr>
+        <tr><td class="num">132</td><td>Geri dönüşüm ayrıştırma sakin mod</td><td class="num">90</td></tr>
+        <tr><td class="num">133</td><td>Arkadaşına oyun öğret</td><td class="num">97</td></tr>
+        <tr><td class="num">134</td><td>Denge tahtası rotası</td><td class="num">120</td></tr>
+        <tr><td class="num">135</td><td>Şarkı sözü tamamlama yarışması</td><td class="num">121</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>V17 bu etkinlikleri <strong>silmiyor</strong>, yalnız id'lerini değiştiriyor ve alt tablolardaki
+  satırları (instructions, steps, materials, outcomes, media, attributes) beraberinde taşıyor.
+  Sonuç: temel seed 1..128'i boşluksuz doldurur, 129..162 sakin havuza kalır, toplam 162 olur —
+  test dokümanının beklediği tablo.</p>
+
+  <div class="note">
+    <p><strong>Kontrol edildi:</strong> repodaki testlerde 129-135 sabit id referansı yok.
+    <code>RecommendationScenarioTest</code> içindeki 129 ve 132 sayıları <em>skor</em>, id değil.</p>
+  </div>
+</section>
+
+<section>
+  <h2>V17 kaynağı</h2>
+  <pre class="tall"><code>-- =====================================================================
+-- V17__relocate_base_activity_ids_129_135.sql
+--
+-- NEDEN
+--   V10 temel seed&#x27;i 128 etkinlik iceriyor ama id araligi 1..135; cunku
+--   1..135 arasinda 7 bos id var: 73, 76, 84, 90, 97, 120, 121.
+--   Bu yuzden temel seed 129, 130, 131, 132, 133, 134, 135 id&#x27;lerini de
+--   kullaniyor.
+--
+--   Sakin havuz test verisi (V18) id 129-162 araligini istiyor ve test
+--   dokumani beklenen ciktilarda bu id&#x27;leri isim isim referans veriyor
+--   (129, 130, 134, 135, 138, 139, 141, 142, 143, 144, 145, 153, 154,
+--   156, 158, 159, 160). Onlem alinmazsa V18&#x27;in ON CONFLICT (id) DO UPDATE
+--   ifadesi temel seed&#x27;in 7 etkinligini SESSIZCE UZERINE YAZAR: toplam
+--   162 yerine 155 olur ve 7 etkinlik kaybolur.
+--
+-- NE YAPIYOR
+--   Temel seed&#x27;in 129-135 etkinliklerini bos id&#x27;lere tasir:
+--     129-&gt;73  130-&gt;76  131-&gt;84  132-&gt;90  133-&gt;97  134-&gt;120  135-&gt;121
+--   Boylece temel seed 1..128 araligini bosluksuz doldurur, 129-162
+--   araligi sakin havuza kalir ve toplam 162 olur.
+--
+--   Etkinlikler SILINMEZ, yalnizca id&#x27;leri degisir. Alt tablolardaki
+--   satirlar (instructions, steps, materials, outcomes, ...) yeni id&#x27;ye
+--   tasinir. activities(id) uzerindeki yabanci anahtarlarda ON UPDATE
+--   CASCADE olmadigi icin sira: once yeni satiri ekle, sonra cocuklari
+--   tasi, en son eskiyi sil.
+--
+-- IDEMPOTENT: hedef id&#x27;ler doluysa hicbir sey yapmaz.
+-- =====================================================================
+
+BEGIN;
+
+CREATE TEMP TABLE tmp_activity_id_map (old_id BIGINT PRIMARY KEY, new_id BIGINT NOT NULL) ON COMMIT DROP;
+
+INSERT INTO tmp_activity_id_map (old_id, new_id) VALUES
+    (129, 73), (130, 76), (131, 84), (132, 90), (133, 97), (134, 120), (135, 121);
+
+-- Guvenlik: hedef id&#x27;lerden biri doluysa tasima yapilmaz.
+DELETE FROM tmp_activity_id_map m
+ WHERE EXISTS (SELECT 1 FROM activities a WHERE a.id = m.new_id)
+    OR NOT EXISTS (SELECT 1 FROM activities a WHERE a.id = m.old_id);
+
+-- 1) Etkinlik satirlarini yeni id ile kopyala.
+INSERT INTO activities (
+    id, scope, workshop_id, title, description, min_age_months, max_age_months,
+    status, target_intelligence, secondary_intelligence, target_domain,
+    difficulty, duration_minutes, involvement_type,
+    noise_load, visual_load, physical_intensity, is_scaffolded,
+    created_at, updated_at, deleted_at)
+SELECT m.new_id, a.scope, a.workshop_id, a.title, a.description, a.min_age_months, a.max_age_months,
+       a.status, a.target_intelligence, a.secondary_intelligence, a.target_domain,
+       a.difficulty, a.duration_minutes, a.involvement_type,
+       a.noise_load, a.visual_load, a.physical_intensity, a.is_scaffolded,
+       a.created_at, a.updated_at, a.deleted_at
+FROM tmp_activity_id_map m
+JOIN activities a ON a.id = m.old_id;
+
+-- 2) Alt tablolari yeni id&#x27;ye tasi.
+UPDATE activity_instructions      c SET activity_id = m.new_id FROM tmp_activity_id_map m WHERE c.activity_id = m.old_id;
+UPDATE activity_steps             c SET activity_id = m.new_id FROM tmp_activity_id_map m WHERE c.activity_id = m.old_id;
+UPDATE activity_materials         c SET activity_id = m.new_id FROM tmp_activity_id_map m WHERE c.activity_id = m.old_id;
+UPDATE activity_outcomes          c SET activity_id = m.new_id FROM tmp_activity_id_map m WHERE c.activity_id = m.old_id;
+UPDATE activity_media             c SET activity_id = m.new_id FROM tmp_activity_id_map m WHERE c.activity_id = m.old_id;
+UPDATE activity_attributes        c SET activity_id = m.new_id FROM tmp_activity_id_map m WHERE c.activity_id = m.old_id;
+UPDATE activity_sessions          c SET activity_id = m.new_id FROM tmp_activity_id_map m WHERE c.activity_id = m.old_id;
+UPDATE activity_workshop_details  c SET activity_id = m.new_id FROM tmp_activity_id_map m WHERE c.activity_id = m.old_id;
+UPDATE daily_plan_items           c SET activity_id = m.new_id FROM tmp_activity_id_map m WHERE c.activity_id = m.old_id;
+UPDATE recommendations            c SET activity_id = m.new_id FROM tmp_activity_id_map m WHERE c.activity_id = m.old_id;
+UPDATE feedback                   c SET activity_id = m.new_id FROM tmp_activity_id_map m WHERE c.activity_id = m.old_id;
+
+-- 3) Eski satirlari sil (alt tablolar artik yeni id&#x27;yi gosteriyor).
+DELETE FROM activities a USING tmp_activity_id_map m WHERE a.id = m.old_id;
+
+COMMIT;
+</code></pre>
+</section>
+
+<section>
+  <h2>V18 kaynağı</h2>
+  <p>Gülçin'in gönderdiği dosyanın birebir aynısı. Tek fark: baştaki yorum satırına yeniden
+  numaralandırma notu düşüldü. 34 etkinlik, id 129-162, alt tablolarıyla birlikte.</p>
+  <details>
+    <summary>V18 tam kaynağı (753 satır)</summary>
+    <div class="body"><pre class="tall"><code>-- =====================================================================
+-- V18__kidloop_test_activities_calm_pool.sql (yuklenen dosya V10 adliydi; V10/V17 dolu oldugu icin V18)
+-- 34 test etkinligi (id 129-162): dusuk duyusal yuk, anne yaninda katilim
+-- Amac: korunmaci duyusal tip ve yuksek ayrilik kaygisi olan cocuklarda
+--       plan kurulamama sorununu kapatmak
+-- Uretim: 15 Agustos 2026
+-- =====================================================================
+-- ONKOSUL: target_domain CHECK 7 degerli, difficulty CHECK 1-4 olmali.
+-- Idempotent: ON CONFLICT (id) DO UPDATE.
+-- =====================================================================
+
+BEGIN;
+
+INSERT INTO activities (
+    id, scope, workshop_id, title, description,
+    min_age_months, max_age_months, status,
+    target_intelligence, secondary_intelligence, target_domain,
+    difficulty, duration_minutes, involvement_type,
+    noise_load, visual_load, physical_intensity, is_scaffolded
+) VALUES
+    (129, &#x27;HOME&#x27;, NULL, &#x27;Kucakta yavaş yan dönüş&#x27;, &#x27;Bebeği kucağınızda ya da minderde çok yavaş bir tempoyla yan yatırıp sırtüstü döndürerek gövde kaslarını uyandıran sessiz bir hareket oyunu.&#x27;,
+     0, 10, &#x27;PUBLISHED&#x27;,
+     &#x27;BODILY_KINAESTHETIC&#x27;, &#x27;INTRAPERSONAL&#x27;, &#x27;GROSS_MOTOR&#x27;,
+     1, 5, &#x27;BIRLIKTE&#x27;,
+     1, 1, 2, TRUE),
+    (130, &#x27;HOME&#x27;, NULL, &#x27;Uzanıp alma oyunu sessiz&#x27;, &#x27;Bebeğin görüş alanında duran yumuşak bir nesneye doğru uzanmasını, sonra nesneyi biraz yana alarak gövdesini çevirmesini sağlayan iki adımlı sakin oyun.&#x27;,
+     3, 12, &#x27;PUBLISHED&#x27;,
+     &#x27;BODILY_KINAESTHETIC&#x27;, &#x27;VISUAL_SPATIAL&#x27;, &#x27;GROSS_MOTOR&#x27;,
+     2, 5, &#x27;BIRLIKTE&#x27;,
+     1, 2, 2, TRUE),
+    (131, &#x27;HOME&#x27;, NULL, &#x27;Fısıltıyla isim oyunu&#x27;, &#x27;Bebeğin kulağına çok alçak sesle adını ve gün içindeki nesnelerin adını söyleyerek dil girdisini gürültüsüz veren bir tanışma oyunu.&#x27;,
+     0, 12, &#x27;PUBLISHED&#x27;,
+     &#x27;VERBAL_LINGUISTIC&#x27;, &#x27;INTRAPERSONAL&#x27;, &#x27;LANGUAGE&#x27;,
+     1, 5, &#x27;BIRLIKTE&#x27;,
+     1, 1, 1, TRUE),
+    (132, &#x27;HOME&#x27;, NULL, &#x27;Tek nesne izleme loş ışıkta&#x27;, &#x27;Loş bir odada tek bir sade nesnenin yavaşça hareket ettirilmesiyle görsel takibi çalıştıran, hiç ses içermeyen bir izleme oyunu.&#x27;,
+     2, 12, &#x27;PUBLISHED&#x27;,
+     &#x27;VISUAL_SPATIAL&#x27;, &#x27;NATURALISTIC&#x27;, &#x27;SENSORY&#x27;,
+     1, 5, &#x27;GOZETIMLI&#x27;,
+     1, 2, 1, TRUE),
+    (133, &#x27;HOME&#x27;, NULL, &#x27;Kalp sesi dinleme&#x27;, &#x27;Bebeği göğsünüze yatırıp kalp atışınızı dinlemesine izin veren, sakinleşme ritüeline dönüşebilen sessiz bir bağ oyunu.&#x27;,
+     0, 12, &#x27;PUBLISHED&#x27;,
+     &#x27;INTRAPERSONAL&#x27;, &#x27;MUSICAL&#x27;, &#x27;SOCIAL_EMOTIONAL&#x27;,
+     1, 5, &#x27;BIRLIKTE&#x27;,
+     1, 1, 1, TRUE),
+    (134, &#x27;HOME&#x27;, NULL, &#x27;Örtü altında kaybolan nesne&#x27;, &#x27;Bebeğin gözü önünde ince bir örtünün altına konan nesnenin hâlâ orada olduğunu keşfetmesini sağlayan sessiz bir nesne sürekliliği oyunu.&#x27;,
+     6, 14, &#x27;PUBLISHED&#x27;,
+     &#x27;LOGICAL_MATHEMATICAL&#x27;, &#x27;VISUAL_SPATIAL&#x27;, &#x27;COGNITIVE&#x27;,
+     2, 5, &#x27;BIRLIKTE&#x27;,
+     1, 2, 1, TRUE),
+    (135, &#x27;HOME&#x27;, NULL, &#x27;Yastıktan yastığa sessiz geçiş&#x27;, &#x27;Yere dizilen iki üç yastığın üstünden elinizden tutarak geçme oyunu; denge çalışır ama ne ses ne kalabalık görüntü vardır.&#x27;,
+     12, 24, &#x27;PUBLISHED&#x27;,
+     &#x27;BODILY_KINAESTHETIC&#x27;, &#x27;VISUAL_SPATIAL&#x27;, &#x27;GROSS_MOTOR&#x27;,
+     2, 10, &#x27;BIRLIKTE&#x27;,
+     1, 2, 2, TRUE),
+    (136, &#x27;HOME&#x27;, NULL, &#x27;Yavaş tempoda birlikte esneme&#x27;, &#x27;Anne ve çocuğun karşılıklı oturup kollarını yukarı kaldırma, öne uzanma gibi üç dört sade hareketi çok yavaş yapması.&#x27;,
+     12, 20, &#x27;PUBLISHED&#x27;,
+     &#x27;BODILY_KINAESTHETIC&#x27;, &#x27;INTRAPERSONAL&#x27;, &#x27;GROSS_MOTOR&#x27;,
+     1, 5, &#x27;BIRLIKTE&#x27;,
+     1, 1, 2, TRUE),
+    (137, &#x27;HOME&#x27;, NULL, &#x27;Sessiz resimli kitap turu&#x27;, &#x27;Resimli bir kitabın sayfalarını çevirip her sayfada tek bir nesneyi alçak sesle adlandırma; sayfa başına bir kelime, hiç hikâye anlatmadan.&#x27;,
+     14, 26, &#x27;PUBLISHED&#x27;,
+     &#x27;VERBAL_LINGUISTIC&#x27;, &#x27;INTERPERSONAL&#x27;, &#x27;LANGUAGE&#x27;,
+     2, 10, &#x27;BIRLIKTE&#x27;,
+     2, 2, 1, TRUE),
+    (138, &#x27;HOME&#x27;, NULL, &#x27;Karşılıklı yumuşak top yuvarlama&#x27;, &#x27;Yerde karşılıklı oturup yumuşak bir topu birbirine yuvarlama; sıra almanın en sade hali.&#x27;,
+     12, 24, &#x27;PUBLISHED&#x27;,
+     &#x27;INTERPERSONAL&#x27;, &#x27;BODILY_KINAESTHETIC&#x27;, &#x27;SOCIAL_EMOTIONAL&#x27;,
+     2, 5, &#x27;BIRLIKTE&#x27;,
+     1, 2, 2, TRUE),
+    (139, &#x27;HOME&#x27;, NULL, &#x27;Kaba içine koyma çıkarma&#x27;, &#x27;Birkaç yumuşak nesneyi bir kutuya koyup çıkarma; sıralı adım ve içinde-dışında kavramını sessizce çalıştıran bağımsızlığa yakın ama gözetimli bir oyun.&#x27;,
+     15, 26, &#x27;PUBLISHED&#x27;,
+     &#x27;LOGICAL_MATHEMATICAL&#x27;, &#x27;VISUAL_SPATIAL&#x27;, &#x27;COGNITIVE&#x27;,
+     2, 10, &#x27;GOZETIMLI&#x27;,
+     1, 2, 1, TRUE),
+    (140, &#x27;HOME&#x27;, NULL, &#x27;Pencereden sessiz gökyüzü izleme&#x27;, &#x27;Pencere kenarına oturup bulutları, ağaç yapraklarını ya da yağmuru sessizce izlemek; hiçbir yönerge yok, yalnız birlikte bakmak.&#x27;,
+     12, 24, &#x27;PUBLISHED&#x27;,
+     &#x27;NATURALISTIC&#x27;, &#x27;VISUAL_SPATIAL&#x27;, &#x27;SENSORY&#x27;,
+     1, 5, &#x27;BIRLIKTE&#x27;,
+     1, 2, 1, TRUE),
+    (141, &#x27;HOME&#x27;, NULL, &#x27;Fısıltı kuklası sohbeti&#x27;, &#x27;Elinize taktığınız yumuşak kuklanın çok alçak sesle selam verip iki soru sorduğu, çocuğun cevapladığı sakin bir sohbet oyunu.&#x27;,
+     24, 36, &#x27;PUBLISHED&#x27;,
+     &#x27;VERBAL_LINGUISTIC&#x27;, &#x27;INTERPERSONAL&#x27;, &#x27;LANGUAGE&#x27;,
+     2, 10, &#x27;BIRLIKTE&#x27;,
+     2, 2, 1, TRUE),
+    (142, &#x27;HOME&#x27;, NULL, &#x27;Bu ne oyunu sade kartlarla&#x27;, &#x27;Tek nesne resmi olan üç dört kartı sırayla gösterip adını söyletme; en sade adlandırma çalışması.&#x27;,
+     24, 36, &#x27;PUBLISHED&#x27;,
+     &#x27;VERBAL_LINGUISTIC&#x27;, &#x27;VISUAL_SPATIAL&#x27;, &#x27;LANGUAGE&#x27;,
+     1, 5, &#x27;BIRLIKTE&#x27;,
+     1, 2, 1, TRUE),
+    (143, &#x27;HOME&#x27;, NULL, &#x27;Yavaş nefes balonu sessiz&#x27;, &#x27;Elleri karnın üstünde, birlikte üç kez yavaş nefes alıp verme; balonu şişirip söndürme benzetmesiyle anlatılan sakinleşme çalışması.&#x27;,
+     24, 40, &#x27;PUBLISHED&#x27;,
+     &#x27;INTRAPERSONAL&#x27;, &#x27;VERBAL_LINGUISTIC&#x27;, &#x27;SELF_REGULATION&#x27;,
+     2, 5, &#x27;BIRLIKTE&#x27;,
+     1, 1, 1, TRUE),
+    (144, &#x27;HOME&#x27;, NULL, &#x27;İkişer eşleştirme sessiz&#x27;, &#x27;Aynı olan iki nesneyi (çorap, kaşık, blok) bulup yan yana koyma; sade, gürültüsüz bir eşleştirme çalışması.&#x27;,
+     24, 38, &#x27;PUBLISHED&#x27;,
+     &#x27;LOGICAL_MATHEMATICAL&#x27;, &#x27;VISUAL_SPATIAL&#x27;, &#x27;COGNITIVE&#x27;,
+     2, 10, &#x27;GOZETIMLI&#x27;,
+     1, 2, 1, TRUE),
+    (145, &#x27;HOME&#x27;, NULL, &#x27;Duygu yüzleri aynada&#x27;, &#x27;Aynanın karşısına geçip mutlu, üzgün, şaşkın yüzleri birlikte yapma ve adlandırma; sessiz bir duygu tanıma oyunu.&#x27;,
+     26, 40, &#x27;PUBLISHED&#x27;,
+     &#x27;INTERPERSONAL&#x27;, &#x27;INTRAPERSONAL&#x27;, &#x27;SOCIAL_EMOTIONAL&#x27;,
+     2, 10, &#x27;BIRLIKTE&#x27;,
+     1, 2, 1, TRUE),
+    (146, &#x27;HOME&#x27;, NULL, &#x27;Sessiz ritim: parmak ucuyla vuruş&#x27;, &#x27;Masaya ya da dize parmak ucuyla çok hafif ritim tutma ve çocuğun tekrar etmesi; ses neredeyse yok, ritim var.&#x27;,
+     24, 36, &#x27;PUBLISHED&#x27;,
+     &#x27;MUSICAL&#x27;, &#x27;BODILY_KINAESTHETIC&#x27;, &#x27;SENSORY&#x27;,
+     2, 5, &#x27;BIRLIKTE&#x27;,
+     2, 1, 2, TRUE),
+    (147, &#x27;HOME&#x27;, NULL, &#x27;Günümü anlatıyorum üç cümle&#x27;, &#x27;Çocuğun gün içinde yaptığı üç şeyi sırayla anlatması; anne yalnız soru sorup bekler, sessiz ve baskısız bir anlatı çalışması.&#x27;,
+     36, 48, &#x27;PUBLISHED&#x27;,
+     &#x27;VERBAL_LINGUISTIC&#x27;, &#x27;INTRAPERSONAL&#x27;, &#x27;LANGUAGE&#x27;,
+     2, 10, &#x27;BIRLIKTE&#x27;,
+     2, 2, 1, TRUE),
+    (148, &#x27;HOME&#x27;, NULL, &#x27;Ne olurdu oyunu sessiz&#x27;, &#x27;Basit varsayım soruları sorup cevap bekleme: &quot;Yağmur yağarsa ne yaparız?&quot;; kuralı akılda tutup cevap üretmeyi çalıştırır.&#x27;,
+     38, 50, &#x27;PUBLISHED&#x27;,
+     &#x27;VERBAL_LINGUISTIC&#x27;, &#x27;LOGICAL_MATHEMATICAL&#x27;, &#x27;LANGUAGE&#x27;,
+     3, 10, &#x27;BIRLIKTE&#x27;,
+     2, 2, 1, TRUE),
+    (149, &#x27;HOME&#x27;, NULL, &#x27;Sakinlik köşesi kurma&#x27;, &#x27;Evin bir köşesine yastık ve battaniyeyle çocuğun kendi sakinleşme alanını birlikte kurmak; kurma işi de etkinliğin parçası.&#x27;,
+     36, 50, &#x27;PUBLISHED&#x27;,
+     &#x27;INTRAPERSONAL&#x27;, &#x27;VISUAL_SPATIAL&#x27;, &#x27;SELF_REGULATION&#x27;,
+     2, 10, &#x27;BIRLIKTE&#x27;,
+     1, 2, 1, TRUE),
+    (150, &#x27;HOME&#x27;, NULL, &#x27;Sıralama: küçükten büyüğe sessiz&#x27;, &#x27;Üç dört nesneyi boyutuna göre sıraya dizme; kuralı akılda tutup uygulamayı gerektiren sade bir çalışma.&#x27;,
+     38, 52, &#x27;PUBLISHED&#x27;,
+     &#x27;LOGICAL_MATHEMATICAL&#x27;, &#x27;VISUAL_SPATIAL&#x27;, &#x27;COGNITIVE&#x27;,
+     3, 10, &#x27;GOZETIMLI&#x27;,
+     1, 2, 1, TRUE),
+    (151, &#x27;HOME&#x27;, NULL, &#x27;Sıra bizde: sessiz sıra oyunu&#x27;, &#x27;Basit bir işi (blok dizme, kart çevirme) sırayla yapma; her turda kimin sırası olduğunu söyleyerek sabrı çalıştırma.&#x27;,
+     36, 48, &#x27;PUBLISHED&#x27;,
+     &#x27;INTERPERSONAL&#x27;, &#x27;VERBAL_LINGUISTIC&#x27;, &#x27;SOCIAL_EMOTIONAL&#x27;,
+     2, 10, &#x27;BIRLIKTE&#x27;,
+     2, 2, 1, TRUE),
+    (152, &#x27;HOME&#x27;, NULL, &#x27;Sessiz doğa masası&#x27;, &#x27;Dışarıdan toplanan üç dört doğal nesneyi (taş, yaprak, kozalak) masaya dizip dokunarak inceleme; hiç konuşmadan, çocuğun kendi temposunda.&#x27;,
+     36, 50, &#x27;PUBLISHED&#x27;,
+     &#x27;NATURALISTIC&#x27;, &#x27;INTRAPERSONAL&#x27;, &#x27;SENSORY&#x27;,
+     2, 10, &#x27;GOZETIMLI&#x27;,
+     1, 2, 1, TRUE),
+    (153, &#x27;HOME&#x27;, NULL, &#x27;Duygu kartları sessiz eşleştirme&#x27;, &#x27;Duygu yüzü çizili kartları çekip o duyguyu ne zaman hissettiğini anlatma; sakin, karşılıklı bir duygu sohbeti.&#x27;,
+     48, 60, &#x27;PUBLISHED&#x27;,
+     &#x27;INTERPERSONAL&#x27;, &#x27;VERBAL_LINGUISTIC&#x27;, &#x27;SOCIAL_EMOTIONAL&#x27;,
+     2, 10, &#x27;BIRLIKTE&#x27;,
+     2, 2, 1, TRUE),
+    (154, &#x27;HOME&#x27;, NULL, &#x27;Teşekkür turu&#x27;, &#x27;Gün içinde teşekkür ettiğiniz üç şeyi sırayla söyleme; iki dakikalık, malzemesiz, çok sakin bir kapanış ritüeli.&#x27;,
+     48, 62, &#x27;PUBLISHED&#x27;,
+     &#x27;INTERPERSONAL&#x27;, &#x27;INTRAPERSONAL&#x27;, &#x27;SOCIAL_EMOTIONAL&#x27;,
+     2, 5, &#x27;BIRLIKTE&#x27;,
+     1, 1, 1, TRUE),
+    (155, &#x27;HOME&#x27;, NULL, &#x27;Hikâyeyi birlikte tamamlama&#x27;, &#x27;Anne bir cümleyle hikâye başlatır, çocuk devam eder, sırayla ilerler; sessiz, yaratıcı bir dil oyunu.&#x27;,
+     48, 62, &#x27;PUBLISHED&#x27;,
+     &#x27;VERBAL_LINGUISTIC&#x27;, &#x27;INTERPERSONAL&#x27;, &#x27;LANGUAGE&#x27;,
+     3, 10, &#x27;BIRLIKTE&#x27;,
+     2, 2, 1, TRUE),
+    (156, &#x27;HOME&#x27;, NULL, &#x27;Bugünkü havam çizimi&#x27;, &#x27;Çocuğun o anki duygusunu bir hava durumu simgesiyle (güneş, bulut, yağmur) çizmesi; konuşmaya gerek bırakmayan sessiz bir duygu ifadesi.&#x27;,
+     48, 62, &#x27;PUBLISHED&#x27;,
+     &#x27;INTRAPERSONAL&#x27;, &#x27;VISUAL_SPATIAL&#x27;, &#x27;SELF_REGULATION&#x27;,
+     2, 10, &#x27;BIRLIKTE&#x27;,
+     1, 2, 1, TRUE),
+    (157, &#x27;HOME&#x27;, NULL, &#x27;Sessiz tahmin kutusu&#x27;, &#x27;Kapalı bir kutunun içindeki nesneyi yalnız dokunarak tahmin etme; ipucu toplayıp sonuç çıkarmayı çalıştırır.&#x27;,
+     48, 62, &#x27;PUBLISHED&#x27;,
+     &#x27;LOGICAL_MATHEMATICAL&#x27;, &#x27;VERBAL_LINGUISTIC&#x27;, &#x27;COGNITIVE&#x27;,
+     3, 10, &#x27;GOZETIMLI&#x27;,
+     1, 2, 1, TRUE),
+    (158, &#x27;HOME&#x27;, NULL, &#x27;Sen olsaydın ne yapardın&#x27;, &#x27;Basit sosyal durumlar anlatıp çocuğun ne yapacağını sorma; başkasının yerine geçme becerisini sessizce çalıştırır.&#x27;,
+     60, 72, &#x27;PUBLISHED&#x27;,
+     &#x27;INTERPERSONAL&#x27;, &#x27;INTRAPERSONAL&#x27;, &#x27;SOCIAL_EMOTIONAL&#x27;,
+     3, 10, &#x27;BIRLIKTE&#x27;,
+     2, 2, 1, TRUE),
+    (159, &#x27;HOME&#x27;, NULL, &#x27;Sessiz plan toplantısı&#x27;, &#x27;Yarın yapılacak iki üç işi birlikte konuşup sıraya koyma; çocuğun kendi gününü planlamaya katılması.&#x27;,
+     60, 72, &#x27;PUBLISHED&#x27;,
+     &#x27;INTERPERSONAL&#x27;, &#x27;VERBAL_LINGUISTIC&#x27;, &#x27;SOCIAL_EMOTIONAL&#x27;,
+     2, 10, &#x27;BIRLIKTE&#x27;,
+     2, 2, 1, TRUE),
+    (160, &#x27;HOME&#x27;, NULL, &#x27;Sabır sayacı sessiz&#x27;, &#x27;Bir dakika boyunca hiç konuşmadan oturup sonra ne duyduğunu anlatma; bekleme ve dikkat toplama çalışması.&#x27;,
+     60, 72, &#x27;PUBLISHED&#x27;,
+     &#x27;INTRAPERSONAL&#x27;, &#x27;LOGICAL_MATHEMATICAL&#x27;, &#x27;SELF_REGULATION&#x27;,
+     3, 10, &#x27;BIRLIKTE&#x27;,
+     1, 2, 1, TRUE),
+    (161, &#x27;HOME&#x27;, NULL, &#x27;Kendi kitabımı yapıyorum&#x27;, &#x27;Üç sayfalık minik bir kitap katlayıp her sayfaya bir olay çizmesi; hikâye kurgusunu tek başına üretmesi.&#x27;,
+     60, 72, &#x27;PUBLISHED&#x27;,
+     &#x27;VERBAL_LINGUISTIC&#x27;, &#x27;INTRAPERSONAL&#x27;, &#x27;LANGUAGE&#x27;,
+     3, 10, &#x27;GOZETIMLI&#x27;,
+     1, 2, 1, TRUE),
+    (162, &#x27;HOME&#x27;, NULL, &#x27;Sessiz labirent çizimi&#x27;, &#x27;Kâğıda basit bir labirent çizip çözmesi, sonra kendi labirentini çizmesi; planlama ve uzamsal düşünme çalışması.&#x27;,
+     60, 72, &#x27;PUBLISHED&#x27;,
+     &#x27;VISUAL_SPATIAL&#x27;, &#x27;LOGICAL_MATHEMATICAL&#x27;, &#x27;COGNITIVE&#x27;,
+     3, 10, &#x27;GOZETIMLI&#x27;,
+     1, 2, 1, TRUE)
+ON CONFLICT (id) DO UPDATE SET
+    scope = EXCLUDED.scope,
+    title = EXCLUDED.title,
+    description = EXCLUDED.description,
+    min_age_months = EXCLUDED.min_age_months,
+    max_age_months = EXCLUDED.max_age_months,
+    status = EXCLUDED.status,
+    target_intelligence = EXCLUDED.target_intelligence,
+    secondary_intelligence = EXCLUDED.secondary_intelligence,
+    target_domain = EXCLUDED.target_domain,
+    difficulty = EXCLUDED.difficulty,
+    duration_minutes = EXCLUDED.duration_minutes,
+    involvement_type = EXCLUDED.involvement_type,
+    noise_load = EXCLUDED.noise_load,
+    visual_load = EXCLUDED.visual_load,
+    physical_intensity = EXCLUDED.physical_intensity,
+    is_scaffolded = EXCLUDED.is_scaffolded;
+
+INSERT INTO activity_instructions (
+    activity_id, intro, purpose, why_it_matters,
+    easier_variation, harder_variation, observation_tip, safety_notes
+) VALUES
+    (129, &#x27;Işıkları kısın, odada tek ses sizin sesiniz olsun. Bebeği sırtüstü yatırın.&#x27;, &#x27;Gövde ve boyun kaslarını, bebeği hiç irkiltmeden çalıştırmak.&#x27;,
+     &#x27;Dönme hareketi emeklemenin ilk provasıdır; sakin tempoda yapıldığında bebek hareketi kendi bedeninden öğrenir, korkmadan tekrar eder.&#x27;,
+     &#x27;Yalnız başını yana çevirmesine eşlik edin, gövdeyi hiç döndürmeyin.&#x27;,
+     &#x27;Dönüşün sonunda birkaç saniye yan yatışta bekletip kendi kendine geri dönmesini bekleyin.&#x27;,
+     &#x27;Dönerken ellerini kullanıp kullanmadığına bakın; bir eliyle kendini itmeye başladıysa bir sonraki basamağa yaklaşıyor demektir.&#x27;,
+     &#x27;Yumuşak ve düz bir zeminde yapın. Bebek huzursuzlanırsa hemen bırakın.&#x27;),
+    (130, &#x27;Bebeği karnüstü ya da sırtüstü yatırın, sevdiği yumuşak bir nesneyi bir kol boyu uzağa koyun.&#x27;, &#x27;Uzanma ve gövdeyi çevirme hareketini birbirine bağlamak.&#x27;,
+     &#x27;Bir hedefe uzanmak, bebeğin ilk amaçlı hareketidir; nesne yana alındığında hareket iki adıma çıkar ve bebek gövdesini kullanmayı öğrenir.&#x27;,
+     &#x27;Nesneyi elinin hemen yanına koyun, yalnız uzanması yeterli olsun.&#x27;,
+     &#x27;Nesneyi aldıktan sonra diğer tarafa koyup ikinci kez çevirmesini isteyin.&#x27;,
+     &#x27;Uzanırken vücudunun hangi tarafını kullanmayı tercih ettiğine bakın.&#x27;,
+     &#x27;Nesne ağzına gidebileceği için küçük parçalı olmasın.&#x27;),
+    (131, &#x27;Sessiz bir odada bebeği kucağınıza alın, yüzünüz onun yüzüne yakın olsun.&#x27;, &#x27;Dil girdisini duyusal yük eklemeden vermek.&#x27;,
+     &#x27;Bebek dili sesin tonundan öğrenir; fısıltı hem net hem de sinir sistemini yormayan bir girdi biçimidir.&#x27;,
+     &#x27;Yalnız adını söyleyin, nesne adlandırmaya geçmeyin.&#x27;,
+     &#x27;Kısa iki kelimelik cümleler kurun: &quot;Anne burada&quot;, &quot;El sıcak&quot;.&#x27;,
+     &#x27;Fısıltıya döndüğünüzde sesin geldiği yöne bakıp bakmadığına dikkat edin.&#x27;,
+     &#x27;Kulağına çok yakın konuşmayın, yarım karış mesafe yeterli.&#x27;),
+    (132, &#x27;Perdeleri yarı kapatın, odada tek bir sade nesne bulunsun.&#x27;, &#x27;Görsel takibi minimum uyaranla çalıştırmak.&#x27;,
+     &#x27;Aşırı uyarandan kaçınan bebekte görsel gelişim, tek nesne ve sade arka planla desteklenir; kalabalık görüntü bebeği kapanmaya iter.&#x27;,
+     &#x27;Nesneyi hiç hareket ettirmeden yalnız gösterin.&#x27;,
+     &#x27;Nesneyi yavaşça yukarı aşağı da hareket ettirin.&#x27;,
+     &#x27;Gözüyle nesneyi kaç saniye takip edebildiğini sayın.&#x27;,
+     &#x27;Parlak ışık ve yanıp sönen oyuncak kullanmayın.&#x27;),
+    (133, &#x27;Sessiz bir odada oturun, bebeği göğsünüze yatırın.&#x27;, &#x27;Bebeğin sinir sistemini annenin ritmiyle düzenlemek.&#x27;,
+     &#x27;Bebek doğmadan önce de duyduğu kalp ritmini tanır; bu ses onu güvende hissettirir ve kendi nefesini düzenlemesine yardım eder.&#x27;,
+     &#x27;Yalnız kucakta sallanın, göğse yatırmayın.&#x27;,
+     &#x27;Kalp sesine eşlik eden çok alçak bir mırıltı ekleyin.&#x27;,
+     &#x27;Birkaç dakika içinde nefesinin yavaşlayıp yavaşlamadığına bakın.&#x27;,
+     &#x27;Bebeğin burnu ve ağzı açıkta kalsın, yüzü yana dönük olsun.&#x27;),
+    (134, &#x27;Bebeği karşınıza oturtun ya da yatırın, aranıza küçük bir nesne koyun.&#x27;, &#x27;Nesne sürekliliği kavramını sessizce çalıştırmak.&#x27;,
+     &#x27;Görünmeyen şeyin var olmaya devam ettiğini anlamak, bebeğin ilk soyut düşüncesidir; bu kavram ayrılık kaygısının yumuşamasına da yardım eder.&#x27;,
+     &#x27;Nesnenin yarısı görünecek şekilde örtün.&#x27;,
+     &#x27;İki örtü kullanıp nesneyi hangisinin altına koyduğunuzu hatırlamasını isteyin.&#x27;,
+     &#x27;Örtüyü kaldırıp kaldırmadığına, kaldırmıyorsa nesneye bakmaya devam edip etmediğine dikkat edin.&#x27;,
+     &#x27;Örtü ince ve nefes alabilir olsun, bebeğin yüzüne yaklaştırmayın.&#x27;),
+    (135, &#x27;Yere iki üç yastık dizin, aralarında bir adım mesafe olsun.&#x27;, &#x27;Dengeyi ve adım kontrolünü gürültüsüz çalıştırmak.&#x27;,
+     &#x27;Yürümeyi yeni öğrenen çocuk zemin değiştikçe dengesini yeniden kurmayı öğrenir; bu, düşmeden yapılabilecek en sade denge çalışmasıdır.&#x27;,
+     &#x27;Tek yastık koyun, sadece üstüne çıkıp inmesi yeterli olsun.&#x27;,
+     &#x27;Elini bırakıp yanında yürüyün, kendi dengesini kurmasını bekleyin.&#x27;,
+     &#x27;Adım atarken gözünü yastığa mı yoksa size mi çevirdiğine bakın.&#x27;,
+     &#x27;Yastıklar kaymayan bir zeminde olsun, çevrede sert köşe bulunmasın.&#x27;),
+    (136, &#x27;Yere karşılıklı oturun, aranızda bir kol mesafesi olsun.&#x27;, &#x27;Büyük kas gruplarını taklit yoluyla, hiç hızlanmadan çalıştırmak.&#x27;,
+     &#x27;Taklit, bu yaşın en güçlü öğrenme yoludur; yavaş tempo aşırı uyarandan kaçınan çocuğun hareketi izleyip kopyalamasına zaman tanır.&#x27;,
+     &#x27;Yalnız kolları yukarı kaldırma hareketini yapın.&#x27;,
+     &#x27;Hareketleri çocuğun başlatmasını isteyin, siz taklit edin.&#x27;,
+     &#x27;Sizi izleyip izlemediğine, kendi başına başlatıp başlatmadığına bakın.&#x27;,
+     &#x27;Zorlamayın, esnetme yapmayın, hareketler çocuğun kendi sınırında kalsın.&#x27;),
+    (137, &#x27;Kucağınıza alın, sade resimli bir kitap seçin.&#x27;, &#x27;Kelime dağarcığını sakin bir ortamda büyütmek.&#x27;,
+     &#x27;Bu yaşta kelime patlaması başlar; ama kalabalık sayfalar ve yüksek sesli anlatım hassas çocuğu kapatır. Tek nesne, alçak ses, bol bekleme en verimli formattır.&#x27;,
+     &#x27;Kitabı kapatın, yalnız kapaktaki tek nesneyi konuşun.&#x27;,
+     &#x27;Nesneyi siz göstermeyin, &quot;kedi nerede&quot; diye sorup bulmasını bekleyin.&#x27;,
+     &#x27;Parmağıyla gösteriyor mu, sesle tekrar ediyor mu, hangisi önce geliyor?&#x27;,
+     &#x27;Kitap sayfaları kalın olsun, ağzına götürürse ıslanmasın.&#x27;),
+    (138, &#x27;Yerde karşılıklı oturun, aranızda bir kol mesafesi bırakın.&#x27;, &#x27;Sıra alma davranışını sessizce kurmak.&#x27;,
+     &#x27;Sıra almak, sosyal gelişimin ilk kuralıdır; top yuvarlamak bu kuralı kelimesiz öğretir, üstelik hiç gürültü çıkarmaz.&#x27;,
+     &#x27;Topu yalnız siz yuvarlayın, geri getirmesi yeterli olsun.&#x27;,
+     &#x27;Mesafeyi biraz açın ya da topu hangi elle iteceğini belirtin.&#x27;,
+     &#x27;Topu geri yuvarlamadan önce size bakıyor mu? Bakışla sıra alıyorsa sosyal beceri gelişiyor demektir.&#x27;,
+     &#x27;Top yumuşak ve sessiz olsun, sert plastik kullanmayın.&#x27;),
+    (139, &#x27;Sade bir kutu ve üç dört yumuşak nesne hazırlayın, yanına oturun.&#x27;, &#x27;İçinde ve dışında kavramını el becerisiyle birlikte kurmak.&#x27;,
+     &#x27;Nesneleri bir kaba koyup çıkarmak, çocuğun ilk sınıflandırma denemesidir; anne yanında ama karışmadığında çocuk kendi temposunu bulur.&#x27;,
+     &#x27;Tek nesneyle başlayın, yalnız kutuya bırakması yeterli.&#x27;,
+     &#x27;Nesneleri renklerine göre iki ayrı kutuya ayırmasını isteyin.&#x27;,
+     &#x27;Nesneleri rastgele mi atıyor, yoksa tek tek yerleştiriyor mu?&#x27;,
+     &#x27;Kutu kenarları keskin olmasın, nesneler yutulabilecek boyutta olmasın.&#x27;),
+    (140, &#x27;Pencere kenarına kucağınızda ya da yanınızda oturtun.&#x27;, &#x27;Doğal uyaranla sakin gözlem kurmak.&#x27;,
+     &#x27;Aşırı uyarandan kaçınan çocuğun duyusal sistemi, yavaş ve öngörülebilir doğa hareketleriyle (bulut, yaprak) rahatlar; bu bir dinlenme etkinliğidir.&#x27;,
+     &#x27;Yalnız bir dakika bakın, sonra bitirin.&#x27;,
+     &#x27;Gördüğü şeyi göstermesini isteyin, siz adlandırın.&#x27;,
+     &#x27;Kaç dakika bakabildiğine ve neye takıldığına dikkat edin.&#x27;,
+     &#x27;Pencere önü güvenli olsun, çocuk tek başına bırakılmasın.&#x27;),
+    (141, &#x27;Sessiz bir köşede karşılıklı oturun, kuklayı elinize takın.&#x27;, &#x27;Karşılıklı konuşmayı gürültüsüz bir çerçevede çalıştırmak.&#x27;,
+     &#x27;Bu yaş dilin en hızlı geliştiği dönem; kukla, çocuğun doğrudan göz teması baskısı olmadan konuşmasını sağlar, fısıltı da ortamı sakin tutar.&#x27;,
+     &#x27;Kukla yalnız selam verip şarkı mırıldansın, soru sormasın.&#x27;,
+     &#x27;Kuklayı çocuğa verin, o size soru sorsun.&#x27;,
+     &#x27;Kuklaya mı yoksa size mi cevap veriyor? Kuklaya cevap veriyorsa oyun tutmuş demektir.&#x27;,
+     &#x27;Kukla yumuşak olsun, ani hareket ettirmeyin.&#x27;),
+    (142, &#x27;Sessiz bir masada yan yana oturun, kartları ters çevirip yanınıza koyun.&#x27;, &#x27;Bilinen kelimeleri pekiştirmek ve yenilerini eklemek.&#x27;,
+     &#x27;Adlandırma, dilin temel taşıdır; sade zeminli tek nesneli kartlar hassas çocuğun dikkatini dağıtmaz.&#x27;,
+     &#x27;Bildiği iki nesneyle sınırlayın, yeni kelime eklemeyin.&#x27;,
+     &#x27;Nesnenin ne işe yaradığını da sormaya başlayın.&#x27;,
+     &#x27;Kelimeyi kendi mi söylüyor yoksa sizin söylemenizi mi bekliyor?&#x27;,
+     &#x27;Kart kenarları keskin olmasın.&#x27;),
+    (143, &#x27;Yan yana ya da kucakta oturun, ışıkları kısın.&#x27;, &#x27;Kendini yatıştırma becerisini öğretmek.&#x27;,
+     &#x27;Öz-düzenleme öğrenilen bir beceridir; sakin anda öğretilirse zor anda kullanılabilir. Aşırı uyarandan kaçınan çocuk için bu beceri özellikle kıymetlidir.&#x27;,
+     &#x27;Yalnız siz nefes alın, o elini karnınıza koyup hissetsin.&#x27;,
+     &#x27;Nefes sayısını beşe çıkarın ya da nefesi kendi başlatmasını isteyin.&#x27;,
+     &#x27;Karnının hareketini fark ediyor mu? Nefesi sizinle eşleşiyor mu?&#x27;,
+     &#x27;Zorlamayın, derin nefes ısrarı yapmayın; baş dönmesi olursa bırakın.&#x27;),
+    (144, &#x27;Masaya üç çift nesne karışık şekilde koyun, yanına oturun.&#x27;, &#x27;Eşleştirme ve benzerlik kavramını çalıştırmak.&#x27;,
+     &#x27;Eşleştirme, sınıflandırmanın ilk adımıdır ve matematiksel düşünmenin temelini kurar. Sessiz malzemelerle yapıldığında hassas çocuk da uzun süre odaklanabilir.&#x27;,
+     &#x27;İki çiftle başlayın, biri çok belirgin farklı olsun.&#x27;,
+     &#x27;Beş çifte çıkarın ya da gözünü kapatıp dokunarak eşleştirmesini isteyin.&#x27;,
+     &#x27;Eşi ararken bakışını nasıl gezdiriyor? Sistemli mi, rastgele mi?&#x27;,
+     &#x27;Küçük parçalı nesne kullanmayın.&#x27;),
+    (145, &#x27;Aynanın karşısına yan yana oturun ya da durun.&#x27;, &#x27;Duyguları tanımayı ve adlandırmayı başlatmak.&#x27;,
+     &#x27;Duyguyu adlandırabilen çocuk, onu yönetmeye de başlar. Ayna, çocuğun kendi ifadesini görmesini sağladığı için bu öğrenmeyi hızlandırır.&#x27;,
+     &#x27;Yalnız mutlu ve üzgün yüzle sınırlayın.&#x27;,
+     &#x27;Siz bir duygu yapın, o adlandırsın; sonra rol değişsin.&#x27;,
+     &#x27;Kendi yüzüne mi yoksa sizinkine mi bakıyor? Duyguyu adlandırabiliyor mu?&#x27;,
+     &#x27;Ayna sabit ve güvenli olmalı, duvara monte tercih edilir.&#x27;),
+    (146, &#x27;Karşılıklı oturun, elleriniz masada ya da dizinizde olsun.&#x27;, &#x27;Ritim algısını gürültüsüz kurmak.&#x27;,
+     &#x27;Ritim, dilin ve hareketin ortak temelidir. Yüksek sesli enstrümanlar hassas çocuğu kapatır; parmak ucu vuruşu aynı beceriyi sessizce çalıştırır.&#x27;,
+     &#x27;İki vuruşla sınırlayın (tak tak).&#x27;,
+     &#x27;Dört vuruşluk kalıplar yapın ya da ritmi çocuk başlatsın.&#x27;,
+     &#x27;Vuruş sayısını doğru tekrarlıyor mu? Yoksa yalnız hareketi mi taklit ediyor?&#x27;,
+     &#x27;Sert yüzeye vurdurtmayın, parmak ucu yeterli.&#x27;),
+    (147, &#x27;Yatmadan önce loş ışıkta yan yana oturun.&#x27;, &#x27;Olayları sırayla anlatma becerisini kurmak.&#x27;,
+     &#x27;Bu yaşta çocuk kelimeleri cümleye, cümleleri sıraya dizmeyi öğrenir. Gün anlatımı hem dili hem belleği çalıştırır, üstelik hiçbir malzeme gerektirmez.&#x27;,
+     &#x27;Tek bir olayı sorun (&quot;Bugün ne yedin?&quot;).&#x27;,
+     &#x27;Sırayı sorun: &quot;Önce ne oldu, sonra ne oldu?&quot;&#x27;,
+     &#x27;Kaç cümle kurabiliyor? Olayları sırasıyla mı anlatıyor?&#x27;,
+     &#x27;Anlatmak istemezse ısrar etmeyin, siz kendi gününüzü anlatın.&#x27;),
+    (148, &#x27;Sakin bir ortamda karşılıklı oturun.&#x27;, &#x27;Neden sonuç bağı kuran cümleler üretmesini sağlamak.&#x27;,
+     &#x27;Varsayım kurmak soyut düşüncenin başlangıcıdır; bu yaşta çocuk &quot;eğer&quot; cümlelerini anlamaya başlar ve dil bu sayede düşünme aracına dönüşür.&#x27;,
+     &#x27;Yalnız iki seçenekli sorun: &quot;Yağmur yağarsa şemsiye mi alırız, mont mu?&quot;&#x27;,
+     &#x27;Çocuk soru sorsun, siz cevaplayın.&#x27;,
+     &#x27;Cevabı mantıklı mı, yoksa aklına ilk geleni mi söylüyor?&#x27;,
+     &#x27;Korkutucu senaryolar sormayın.&#x27;),
+    (149, &#x27;Evin sakin bir köşesini birlikte seçin.&#x27;, &#x27;Çocuğa kendi sakinleşme alanını tanımlamak.&#x27;,
+     &#x27;Kendi alanını kuran çocuk, o alana ihtiyaç duyduğunda kendi gider. Bu, öz-düzenlemenin en kalıcı biçimidir ve hassas çocuk için bir sığınak yaratır.&#x27;,
+     &#x27;Siz kurun, o yalnız yastığı yerleştirsin.&#x27;,
+     &#x27;Köşede ne olacağına tamamen kendisi karar versin.&#x27;,
+     &#x27;Kurduktan sonra kendi başına gidiyor mu? Ne zaman gidiyor?&#x27;,
+     &#x27;Köşe kapalı bir alan olmasın, görüş açık kalsın.&#x27;),
+    (150, &#x27;Masaya farklı boyutta üç dört nesne karışık koyun.&#x27;, &#x27;Boyut kavramını ve sıralama kuralını çalıştırmak.&#x27;,
+     &#x27;Sıralama, matematiksel düşünmenin çekirdeğidir: çocuk bir kuralı akılda tutup tüm nesnelere uygulamayı öğrenir.&#x27;,
+     &#x27;İki nesneyle başlayın, aralarındaki fark belirgin olsun.&#x27;,
+     &#x27;Beş nesneye çıkarın ya da büyükten küçüğe dizmesini isteyin.&#x27;,
+     &#x27;Kuralı tutarlı uyguluyor mu, yoksa ortada bozuluyor mu?&#x27;,
+     &#x27;Nesneler kırılmaz olsun.&#x27;),
+    (151, &#x27;Masada karşılıklı oturun, önünüze birkaç blok koyun.&#x27;, &#x27;Sıra beklemeyi ve kurala uymayı çalıştırmak.&#x27;,
+     &#x27;Sıra beklemek, okul öncesi dönemin en kritik sosyal becerisidir. Sessiz bir masa oyununda öğrenilirse kalabalık ortamda da kullanılabilir.&#x27;,
+     &#x27;İki turda bitirin, bekleme süresi kısa olsun.&#x27;,
+     &#x27;Sırayı unutma oyunu ekleyin: kim unutursa bir tur atlar.&#x27;,
+     &#x27;Sırasını beklerken ne yapıyor? Sabırsızlanıyor mu, izliyor mu?&#x27;,
+     &#x27;Kaybetme durumu yaratmayın, bu bir yarışma değil.&#x27;),
+    (152, &#x27;Masaya doğal nesneleri dizin, yanına oturun ama karışmayın.&#x27;, &#x27;Doğal dokuları sakin ve bağımsıza yakın bir kurulumda keşfettirmek.&#x27;,
+     &#x27;Doğal nesneler yapay oyuncaklardan daha sade uyaran taşır: parlamaz, ses çıkarmaz, beklenmedik hareket etmez. Hassas çocuk için ideal keşif malzemesidir.&#x27;,
+     &#x27;İki nesneyle başlayın, siz de birlikte dokunun.&#x27;,
+     &#x27;Nesneleri dokusuna göre gruplamasını isteyin.&#x27;,
+     &#x27;Hangi dokuda daha uzun kalıyor? Hangisinden kaçınıyor?&#x27;,
+     &#x27;Nesneleri önceden yıkayın, küçük ve yutulabilir parça bırakmayın.&#x27;),
+    (153, &#x27;Masada karşılıklı oturun, duygu kartlarını ters çevirin.&#x27;, &#x27;Duyguları tanıyıp kendi deneyimiyle eşleştirmesini sağlamak.&#x27;,
+     &#x27;Okul öncesi dönemin dönem görevi sosyal-duygusal gelişimdir. Duyguyu adlandırıp örnekleyebilen çocuk, hem kendini hem başkasını daha iyi anlar.&#x27;,
+     &#x27;İki kartla sınırlayın (mutlu, üzgün), örnek vermesi zorunlu olmasın.&#x27;,
+     &#x27;Kartı çekmeden siz bir olay anlatın, o duyguyu tahmin etsin.&#x27;,
+     &#x27;Kendi deneyiminden örnek verebiliyor mu, yoksa genel mi konuşuyor?&#x27;,
+     &#x27;Üzücü anıya takılırsa konuyu değiştirin, ısrar etmeyin.&#x27;),
+    (154, &#x27;Yatmadan önce yan yana oturun, ışıkları kısın.&#x27;, &#x27;Olumlu duyguları fark etme ve ifade etme alışkanlığı kurmak.&#x27;,
+     &#x27;Minnet ifadesi, duygu düzenlemesinin en basit ve en güçlü araçlarından biridir; günü olumlu bir notla kapatmak uykuya geçişi de kolaylaştırır.&#x27;,
+     &#x27;Tek şey söylemesi yeterli olsun, siz iki tane söyleyin.&#x27;,
+     &#x27;Neden teşekkür ettiğini de açıklamasını isteyin.&#x27;,
+     &#x27;Kendi hayatından mı örnek veriyor, yoksa sizinkini mi tekrarlıyor?&#x27;,
+     &#x27;Zorunlu tutmayın; söylemek istemezse siz söyleyin, dinlemesi yeterli.&#x27;),
+    (155, &#x27;Sakin bir ortamda karşılıklı ya da yan yana oturun.&#x27;, &#x27;Anlatı kurma ve sırayla katkı verme becerisini birleştirmek.&#x27;,
+     &#x27;Kendi hikâyesini kuran çocuk dili düşünme aracı olarak kullanmaya başlar; sıra alma kuralı da sosyal beceriyi aynı anda çalıştırır.&#x27;,
+     &#x27;Siz üç cümle söyleyin, o yalnız sonunu tamamlasın.&#x27;,
+     &#x27;Hikâyeyi tamamen çocuk kursun, siz yalnız dinleyin.&#x27;,
+     &#x27;Hikâyeye kendi öğelerini ekliyor mu, yoksa sizinkini mi tekrarlıyor?&#x27;,
+     &#x27;Korkutucu yöne giderse yumuşatın.&#x27;),
+    (156, &#x27;Masaya kâğıt ve birkaç kalem koyun, yanına oturun.&#x27;, &#x27;Duyguyu sözsüz ifade etmenin bir yolunu kazandırmak.&#x27;,
+     &#x27;Bazı çocuklar duygusunu anlatamaz ama çizebilir. Hava durumu benzetmesi soyut duyguyu somutlaştırır ve anne için de okunabilir bir işaret olur.&#x27;,
+     &#x27;Üç seçenekten birini işaretlemesi yeterli olsun, çizmesin.&#x27;,
+     &#x27;Havanın gün içinde nasıl değiştiğini de çizmesini isteyin.&#x27;,
+     &#x27;Hangi simgeyi seçiyor? Seçimi gün boyunca gözlemlediklerinizle uyuşuyor mu?&#x27;,
+     &#x27;Çizimi yorumlamayın, &quot;neden böyle çizdin&quot; diye sorgulamayın.&#x27;),
+    (157, &#x27;Bir nesneyi kutuya koyup kapatın, çocuğa göstermeyin.&#x27;, &#x27;İpuçlarından sonuç çıkarma becerisini çalıştırmak.&#x27;,
+     &#x27;Tahmin etmek, eldeki bilgiyle akıl yürütmektir. Görsel uyaran olmadan yalnız dokunmayla yapılması hem odaklanmayı artırır hem duyusal yükü düşük tutar.&#x27;,
+     &#x27;Nesneyi önce gösterip sonra kutuya koyun, hatırlaması yeterli olsun.&#x27;,
+     &#x27;Üç nesne koyup hepsini sırayla tahmin etmesini isteyin.&#x27;,
+     &#x27;Tahmin ederken hangi özellikleri söylüyor (sert, yumuşak, uzun)?&#x27;,
+     &#x27;Kutuya keskin ya da kırılabilir nesne koymayın.&#x27;),
+    (158, &#x27;Sakin bir ortamda karşılıklı oturun.&#x27;, &#x27;Bakış açısı alma ve sosyal problem çözme becerisini geliştirmek.&#x27;,
+     &#x27;Okula hazırlığın özü, başkasının ne hissettiğini anlayıp ona göre davranabilmektir. Bu yaşta çocuk artık kendi dışındaki bakış açısını kurabilir.&#x27;,
+     &#x27;İki seçenek sunun, birini seçmesi yeterli olsun.&#x27;,
+     &#x27;Durumu o kursun, siz cevaplayın.&#x27;,
+     &#x27;Kendi isteğinden mi konuşuyor, yoksa karşıdakini düşünebiliyor mu?&#x27;,
+     &#x27;Gerçek bir çatışmayı örnek vermeyin, kurgu kalsın.&#x27;),
+    (159, &#x27;Masada yan yana oturun, kâğıt ve kalem alın.&#x27;, &#x27;Planlama ve söz verme becerisini kurmak.&#x27;,
+     &#x27;Kendi gününü planlayan çocuk sorumluluk duygusu geliştirir; okul düzenine geçişte en çok işe yarayan beceri budur.&#x27;,
+     &#x27;İki iş konuşun, sıralamayı siz yapın.&#x27;,
+     &#x27;Haftalık plan yapın, her akşam birlikte kontrol edin.&#x27;,
+     &#x27;Kendi önerisini getiriyor mu, yoksa sizinkini mi onaylıyor?&#x27;,
+     &#x27;Yapılamayan plan için suçlayıcı olmayın.&#x27;),
+    (160, &#x27;Sessiz bir odada karşılıklı oturun, saat ya da kum saati koyun.&#x27;, &#x27;Bekleme becerisini ve iç dikkati çalıştırmak.&#x27;,
+     &#x27;Bekleyebilen çocuk dürtüsünü yönetmeyi öğrenir. Bu beceri, okul başarısının en güçlü yordayıcılarından biridir ve sessiz alıştırmayla gelişir.&#x27;,
+     &#x27;Süreyi otuz saniyeye indirin.&#x27;,
+     &#x27;İki dakikaya çıkarın ya da gözlerini kapatmasını isteyin.&#x27;,
+     &#x27;Süre boyunca ne yapıyor? Kıpırdanıyor mu, dinliyor mu?&#x27;,
+     &#x27;Başaramazsa sorun etmeyin, süre kısaltılır.&#x27;),
+    (161, &#x27;Kâğıdı üçe katlayın, kalemleri koyun, yanına oturun ama karışmayın.&#x27;, &#x27;Kendi anlatısını baştan sona kurmasını sağlamak.&#x27;,
+     &#x27;Bu yaşta çocuk artık kendi kurgusunu üretebilir. Kitap formatı, hikâyenin başı ortası sonu olduğunu somutlaştırır.&#x27;,
+     &#x27;Tek sayfa çizsin, siz sonunu sorun.&#x27;,
+     &#x27;Sayfalara yazı da eklemesini isteyin (harf denemeleri olsa da olur).&#x27;,
+     &#x27;Hikâyede başlangıç, ortada bir olay ve son var mı?&#x27;,
+     &#x27;Çizimini yorumlamayın, &quot;bu ne&quot; diye sorgulamayın.&#x27;),
+    (162, &#x27;Kâğıda basit bir labirent çizin, kalemi verin.&#x27;, &#x27;Uzamsal planlama ve deneme yanılma becerisini çalıştırmak.&#x27;,
+     &#x27;Labirent çözmek, önden planlamayı gerektirir: çocuk yolu gözüyle takip edip kararını önceden verir. Sessiz ve tek başına yapılabilen ideal bir bilişsel çalışmadır.&#x27;,
+     &#x27;Çok basit, tek dönüşlü bir labirent çizin.&#x27;,
+     &#x27;Kendi labirentini çizip size çözdürmesini isteyin.&#x27;,
+     &#x27;Kalemi hemen mi bastırıyor, yoksa önce gözüyle mi izliyor?&#x27;,
+     &#x27;Kalem ucu sivri olmasın.&#x27;)
+ON CONFLICT (activity_id) DO UPDATE SET
+    intro = EXCLUDED.intro,
+    purpose = EXCLUDED.purpose,
+    why_it_matters = EXCLUDED.why_it_matters,
+    easier_variation = EXCLUDED.easier_variation,
+    harder_variation = EXCLUDED.harder_variation,
+    observation_tip = EXCLUDED.observation_tip,
+    safety_notes = EXCLUDED.safety_notes;
+
+DELETE FROM activity_steps WHERE activity_id IN (129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162);
+INSERT INTO activity_steps (activity_id, step_no, text) VALUES
+    (129, 1, &#x27;Bebeği sırtüstü yatırın ve göz teması kurun.&#x27;),
+    (129, 2, &#x27;Bir elinizle kalçasını, diğeriyle omzunu çok hafifçe destekleyin.&#x27;),
+    (129, 3, &#x27;Beş saniyede bir tam dönüş olacak yavaşlıkta yana çevirin.&#x27;),
+    (129, 4, &#x27;Yan yatışta üç saniye bekleyin.&#x27;),
+    (129, 5, &#x27;Aynı yavaşlıkta sırtüstü getirin, iki kez tekrarlayın.&#x27;),
+    (130, 1, &#x27;Nesneyi bebeğin görebileceği ama ulaşamayacağı yere koyun.&#x27;),
+    (130, 2, &#x27;Adını söyleyip nesneyi hafifçe hareket ettirin.&#x27;),
+    (130, 3, &#x27;Uzandığında nesneye dokunmasına izin verin.&#x27;),
+    (130, 4, &#x27;Nesneyi bir karış yana alın, gövdesini çevirmesini bekleyin.&#x27;),
+    (130, 5, &#x27;Aldığında birlikte sevinin, oyunu bitirin.&#x27;),
+    (131, 1, &#x27;Bebeği kucağınıza alın, göz teması kurun.&#x27;),
+    (131, 2, &#x27;Adını üç kez, aralarında bekleyerek fısıldayın.&#x27;),
+    (131, 3, &#x27;Tepki verirse (bakış, ses, hareket) bekleyip ona sıra verin.&#x27;),
+    (131, 4, &#x27;Yakınındaki bir nesnenin adını fısıldayın.&#x27;),
+    (131, 5, &#x27;Sessizlikle bitirin.&#x27;),
+    (132, 1, &#x27;Odayı loşlaştırın.&#x27;),
+    (132, 2, &#x27;Nesneyi bebeğin göz hizasında yarım karış uzakta tutun.&#x27;),
+    (132, 3, &#x27;Baktığından emin olun.&#x27;),
+    (132, 4, &#x27;Çok yavaşça sağa, sonra sola götürün.&#x27;),
+    (132, 5, &#x27;Gözü ayrılırsa durun, tekrar dikkatini çekin.&#x27;),
+    (133, 1, &#x27;Rahat bir koltukta oturun.&#x27;),
+    (133, 2, &#x27;Bebeği göğsünüze, kulağı kalbinize gelecek şekilde yatırın.&#x27;),
+    (133, 3, &#x27;Elinizi sırtına koyun, hareket etmeyin.&#x27;),
+    (133, 4, &#x27;Üç dakika sessiz kalın.&#x27;),
+    (133, 5, &#x27;Bebek gevşediğinde yatağına alın.&#x27;),
+    (134, 1, &#x27;Nesneyi bebeğe gösterin, dokunmasına izin verin.&#x27;),
+    (134, 2, &#x27;Gözü üstündeyken ince örtüyle yavaşça örtün.&#x27;),
+    (134, 3, &#x27;Bekleyin, acele etmeyin.&#x27;),
+    (134, 4, &#x27;Bulamazsa örtünün ucunu hafifçe kaldırın.&#x27;),
+    (134, 5, &#x27;Bulduğunda sessizce gülümseyerek onaylayın.&#x27;),
+    (135, 1, &#x27;Yastıkları dizin, çocuğa gösterin.&#x27;),
+    (135, 2, &#x27;İki elinden tutun.&#x27;),
+    (135, 3, &#x27;İlk yastığa çıkmasını bekleyin, acele ettirmeyin.&#x27;),
+    (135, 4, &#x27;Yastıktan yastığa geçin.&#x27;),
+    (135, 5, &#x27;Sonda birlikte oturup dinlenin.&#x27;),
+    (136, 1, &#x27;Karşılıklı oturun.&#x27;),
+    (136, 2, &#x27;Kollarınızı yavaşça yukarı kaldırın, bekleyin.&#x27;),
+    (136, 3, &#x27;Çocuk taklit edene kadar tutun.&#x27;),
+    (136, 4, &#x27;Öne doğru uzanın, aynı şekilde bekleyin.&#x27;),
+    (136, 5, &#x27;Üç hareketle bitirin.&#x27;),
+    (137, 1, &#x27;Kucağınıza alın, kitabı birlikte tutun.&#x27;),
+    (137, 2, &#x27;İlk sayfayı açın, tek nesneyi gösterip adını söyleyin.&#x27;),
+    (137, 3, &#x27;Beş saniye bekleyin.&#x27;),
+    (137, 4, &#x27;Tepki verirse tekrarlayın.&#x27;),
+    (137, 5, &#x27;Üç dört sayfada bitirin.&#x27;),
+    (138, 1, &#x27;Karşılıklı oturun.&#x27;),
+    (138, 2, &#x27;Topu yavaşça ona doğru yuvarlayın.&#x27;),
+    (138, 3, &#x27;Alması ve size bakması için bekleyin.&#x27;),
+    (138, 4, &#x27;Geri yuvarlamasını isteyin, acele ettirmeyin.&#x27;),
+    (138, 5, &#x27;Beş tur sonra bitirin.&#x27;),
+    (139, 1, &#x27;Kutuyu ve nesneleri önüne koyun.&#x27;),
+    (139, 2, &#x27;Bir nesneyi kutuya koyup gösterin.&#x27;),
+    (139, 3, &#x27;Geri çekilin, kendi denemesini bekleyin.&#x27;),
+    (139, 4, &#x27;Tıkanırsa tek hamle gösterin.&#x27;),
+    (139, 5, &#x27;Kutu dolunca birlikte boşaltın.&#x27;),
+    (140, 1, &#x27;Pencere kenarına oturun.&#x27;),
+    (140, 2, &#x27;Hiçbir şey söylemeden birlikte dışarı bakın.&#x27;),
+    (140, 3, &#x27;Bir şeye takılırsa siz de oraya bakın.&#x27;),
+    (140, 4, &#x27;İsterse tek kelimeyle adlandırın.&#x27;),
+    (140, 5, &#x27;İlgisi dağılınca bitirin.&#x27;),
+    (141, 1, &#x27;Kuklayı elinize takın, yavaşça ortaya çıkarın.&#x27;),
+    (141, 2, &#x27;Kukla fısıltıyla selam versin.&#x27;),
+    (141, 3, &#x27;Çocuğun cevabını bekleyin, acele ettirmeyin.&#x27;),
+    (141, 4, &#x27;Kukla tek bir soru sorsun (&quot;Bugün ne yaptın?&quot;).&#x27;),
+    (141, 5, &#x27;Cevap gelince kukla teşekkür edip vedalaşsın.&#x27;),
+    (142, 1, &#x27;İlk kartı çevirin, göstermeden önce bekleyin.&#x27;),
+    (142, 2, &#x27;Kartı gösterin, hiçbir şey söylemeyin.&#x27;),
+    (142, 3, &#x27;Çocuk adlandırmazsa siz söyleyin, tekrarlamasını bekleyin.&#x27;),
+    (142, 4, &#x27;Doğru söylerse onaylayın.&#x27;),
+    (142, 5, &#x27;Dört kartta bitirin.&#x27;),
+    (143, 1, &#x27;Ellerinizi karnınıza koyun, ona da koydurun.&#x27;),
+    (143, 2, &#x27;&quot;Balonu şişiriyoruz&quot; deyip yavaşça nefes alın.&#x27;),
+    (143, 3, &#x27;&quot;Şimdi söndürüyoruz&quot; deyip yavaşça verin.&#x27;),
+    (143, 4, &#x27;Üç kez tekrarlayın.&#x27;),
+    (143, 5, &#x27;Sessizce oturup bitirin.&#x27;),
+    (144, 1, &#x27;Nesneleri karışık dizin.&#x27;),
+    (144, 2, &#x27;Bir nesneyi alıp eşini aramasını isteyin.&#x27;),
+    (144, 3, &#x27;Geri çekilin, aramasını bekleyin.&#x27;),
+    (144, 4, &#x27;Bulunca yan yana koydurun.&#x27;),
+    (144, 5, &#x27;Üç çift bitince toplayın.&#x27;),
+    (145, 1, &#x27;Aynanın karşısına geçin.&#x27;),
+    (145, 2, &#x27;Mutlu bir yüz yapıp &quot;mutlu&quot; deyin.&#x27;),
+    (145, 3, &#x27;Taklit etmesini bekleyin.&#x27;),
+    (145, 4, &#x27;Üzgün yüzle tekrarlayın.&#x27;),
+    (145, 5, &#x27;Üç duyguyla bitirin.&#x27;),
+    (146, 1, &#x27;Masaya parmak ucuyla iki kez hafifçe vurun.&#x27;),
+    (146, 2, &#x27;Bekleyin, tekrarlamasını isteyin.&#x27;),
+    (146, 3, &#x27;Doğru yaparsa onaylayın.&#x27;),
+    (146, 4, &#x27;Üç vuruşluk kalıba geçin.&#x27;),
+    (146, 5, &#x27;Beş turda bitirin.&#x27;),
+    (147, 1, &#x27;Loş ışıkta yan yana oturun.&#x27;),
+    (147, 2, &#x27;&quot;Bugün ne yaptık?&quot; diye sorun.&#x27;),
+    (147, 3, &#x27;Cevabı bekleyin, sözünü kesmeyin.&#x27;),
+    (147, 4, &#x27;&quot;Sonra ne oldu?&quot; diye devam ettirin.&#x27;),
+    (147, 5, &#x27;Üç cümle olunca teşekkür edip bitirin.&#x27;),
+    (148, 1, &#x27;Karşılıklı oturun.&#x27;),
+    (148, 2, &#x27;&quot;Yağmur yağarsa ne yaparız?&quot; diye sorun.&#x27;),
+    (148, 3, &#x27;Düşünmesi için bekleyin.&#x27;),
+    (148, 4, &#x27;Cevabını genişletin, düzeltmeyin.&#x27;),
+    (148, 5, &#x27;İki üç soruda bitirin.&#x27;),
+    (149, 1, &#x27;Birlikte sakin bir köşe seçin.&#x27;),
+    (149, 2, &#x27;Yastık ve battaniyeyi birlikte yerleştirin.&#x27;),
+    (149, 3, &#x27;&quot;Burası senin sakin köşen&quot; deyin.&#x27;),
+    (149, 4, &#x27;Birlikte oturup bir dakika sessiz kalın.&#x27;),
+    (149, 5, &#x27;İstediğinde gelebileceğini söyleyin.&#x27;),
+    (150, 1, &#x27;Nesneleri karışık dizin.&#x27;),
+    (150, 2, &#x27;&quot;En küçüğü hangisi?&quot; diye sorun.&#x27;),
+    (150, 3, &#x27;Sıraya dizmesini isteyin, karışmayın.&#x27;),
+    (150, 4, &#x27;Takılırsa yalnız bir nesneyi doğru yere koyun.&#x27;),
+    (150, 5, &#x27;Bitince birlikte bakın.&#x27;),
+    (151, 1, &#x27;Blokları ortaya koyun.&#x27;),
+    (151, 2, &#x27;&quot;Önce ben&quot; deyip bir blok koyun.&#x27;),
+    (151, 3, &#x27;&quot;Şimdi sen&quot; deyin, bekleyin.&#x27;),
+    (151, 4, &#x27;Her turda sırayı sesli söyleyin.&#x27;),
+    (151, 5, &#x27;Altı blok bitince kule tamam, birlikte bakın.&#x27;),
+    (152, 1, &#x27;Nesneleri masaya dizin.&#x27;),
+    (152, 2, &#x27;&quot;İstediğin gibi bakabilirsin&quot; deyip geri çekilin.&#x27;),
+    (152, 3, &#x27;Karışmadan izleyin.&#x27;),
+    (152, 4, &#x27;Bir şey sorarsa kısaca cevaplayın.&#x27;),
+    (152, 5, &#x27;İlgisi bitince birlikte toplayın.&#x27;),
+    (153, 1, &#x27;Kartları ters çevirip dizin.&#x27;),
+    (153, 2, &#x27;Bir kart çekip duyguyu adlandırmasını isteyin.&#x27;),
+    (153, 3, &#x27;&quot;Sen ne zaman böyle hissettin?&quot; diye sorun.&#x27;),
+    (153, 4, &#x27;Anlatmasını bekleyin, yorum yapmayın.&#x27;),
+    (153, 5, &#x27;Üç kartta bitirin.&#x27;),
+    (154, 1, &#x27;Işıkları kısıp yan yana oturun.&#x27;),
+    (154, 2, &#x27;Siz bir teşekkür söyleyin.&#x27;),
+    (154, 3, &#x27;Sıra ona geçsin, bekleyin.&#x27;),
+    (154, 4, &#x27;Üç tur dönün.&#x27;),
+    (154, 5, &#x27;Sessizce bitirin.&#x27;),
+    (155, 1, &#x27;&quot;Bir varmış bir yokmuş, küçük bir kedi varmış&quot; diye başlayın.&#x27;),
+    (155, 2, &#x27;Sıra ona geçsin, bekleyin.&#x27;),
+    (155, 3, &#x27;Kısa bir cümleyle devam edin.&#x27;),
+    (155, 4, &#x27;Beş turda hikâyeyi bitirin.&#x27;),
+    (155, 5, &#x27;Birlikte hikâyeye isim koyun.&#x27;),
+    (156, 1, &#x27;Kâğıdı ve kalemleri koyun.&#x27;),
+    (156, 2, &#x27;&quot;Bugün havan nasıldı?&quot; diye sorun.&#x27;),
+    (156, 3, &#x27;Güneş, bulut, yağmur örneklerini gösterin.&#x27;),
+    (156, 4, &#x27;Çizmesini bekleyin, karışmayın.&#x27;),
+    (156, 5, &#x27;Çizimi birlikte asın ya da saklayın.&#x27;),
+    (157, 1, &#x27;Nesneyi kutuya koyun, kapağı kapatın.&#x27;),
+    (157, 2, &#x27;Elini sokup dokunmasını isteyin.&#x27;),
+    (157, 3, &#x27;&quot;Nasıl bir şey?&quot; diye sorun, tarif etmesini bekleyin.&#x27;),
+    (157, 4, &#x27;Tahminini söylesin.&#x27;),
+    (157, 5, &#x27;Kutuyu açıp birlikte bakın.&#x27;),
+    (158, 1, &#x27;Kısa bir durum anlatın (&quot;Arkadaşın oyuncağını kırdı, üzgün&quot;).&#x27;),
+    (158, 2, &#x27;&quot;Sen olsan ne yapardın?&quot; diye sorun.&#x27;),
+    (158, 3, &#x27;Düşünmesi için bekleyin.&#x27;),
+    (158, 4, &#x27;Cevabını genişletin, düzeltmeyin.&#x27;),
+    (158, 5, &#x27;İki durumda bitirin.&#x27;),
+    (159, 1, &#x27;&quot;Yarın ne yapmak istersin?&quot; diye sorun.&#x27;),
+    (159, 2, &#x27;İki üç öneriyi yazın ya da çizin.&#x27;),
+    (159, 3, &#x27;Hangisi önce olsun diye sorun.&#x27;),
+    (159, 4, &#x27;Sıraya koyun.&#x27;),
+    (159, 5, &#x27;Kâğıdı görünür bir yere asın.&#x27;),
+    (160, 1, &#x27;Kum saatini çevirin.&#x27;),
+    (160, 2, &#x27;&quot;Bir dakika hiç konuşmadan dinleyelim&quot; deyin.&#x27;),
+    (160, 3, &#x27;Birlikte sessiz oturun.&#x27;),
+    (160, 4, &#x27;Süre bitince ne duyduğunu sorun.&#x27;),
+    (160, 5, &#x27;Siz de duyduklarınızı söyleyin.&#x27;),
+    (161, 1, &#x27;Kâğıdı üçe katlayıp kitap yapın.&#x27;),
+    (161, 2, &#x27;&quot;Kendi hikâyeni çiz&quot; deyin.&#x27;),
+    (161, 3, &#x27;Geri çekilin, karışmayın.&#x27;),
+    (161, 4, &#x27;Bitince anlatmasını isteyin.&#x27;),
+    (161, 5, &#x27;Kitabı birlikte saklayın.&#x27;),
+    (162, 1, &#x27;Basit bir labirent çizin.&#x27;),
+    (162, 2, &#x27;Başlangıç ve bitişi gösterin.&#x27;),
+    (162, 3, &#x27;Çözmesini bekleyin, yol göstermeyin.&#x27;),
+    (162, 4, &#x27;Bitince birlikte bakın.&#x27;),
+    (162, 5, &#x27;İsterse kendi labirentini çizsin.&#x27;);
+
+DELETE FROM activity_materials WHERE activity_id IN (129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162);
+INSERT INTO activity_materials (activity_id, name, note, is_optional) VALUES
+    (129, &#x27;Yumuşak minder ya da oyun matı&#x27;, &#x27;Zemin sert olmasın&#x27;, FALSE),
+    (129, &#x27;İnce battaniye&#x27;, &#x27;Üstünü örtmek için&#x27;, TRUE),
+    (130, &#x27;Yumuşak oyuncak ya da kumaş top&#x27;, &#x27;Sessiz olanı tercih edin&#x27;, FALSE),
+    (131, &#x27;Sessiz bir oda&#x27;, &#x27;Televizyon ve müzik kapalı&#x27;, FALSE),
+    (132, &#x27;Sade renkli tek nesne&#x27;, &#x27;Parlamayan, ses çıkarmayan&#x27;, FALSE),
+    (133, &#x27;Rahat koltuk&#x27;, &#x27;Sırtınız desteklensin&#x27;, FALSE),
+    (134, &#x27;Küçük yumuşak nesne&#x27;, &#x27;Ses çıkarmayan&#x27;, FALSE),
+    (134, &#x27;İnce kumaş örtü&#x27;, &#x27;Tülbent ya da ince muslin&#x27;, FALSE),
+    (135, &#x27;İki üç yastık&#x27;, &#x27;Sert olmayan&#x27;, FALSE),
+    (136, &#x27;Yumuşak zemin&#x27;, &#x27;Halı ya da mat&#x27;, TRUE),
+    (137, &#x27;Kalın sayfalı resimli kitap&#x27;, &#x27;Sayfa başına tek nesne olanı tercih edin&#x27;, FALSE),
+    (138, &#x27;Yumuşak top&#x27;, &#x27;Kumaş ya da sünger&#x27;, FALSE),
+    (139, &#x27;Sade kutu ya da sepet&#x27;, &#x27;Kapaksız&#x27;, FALSE),
+    (139, &#x27;Üç dört yumuşak nesne&#x27;, &#x27;Yutulmayacak boyutta&#x27;, FALSE),
+    (140, &#x27;Pencere&#x27;, &#x27;Güvenli, açılmayan&#x27;, FALSE),
+    (141, &#x27;Yumuşak el kuklası&#x27;, &#x27;Ses çıkarmayan&#x27;, FALSE),
+    (142, &#x27;Sade resimli kartlar&#x27;, &#x27;Tek nesne, düz zemin&#x27;, FALSE),
+    (143, &#x27;Sessiz oda&#x27;, &#x27;Loş ışık tercih edilir&#x27;, TRUE),
+    (144, &#x27;Üç çift aynı nesne&#x27;, &#x27;Çorap, kaşık, blok gibi&#x27;, FALSE),
+    (145, &#x27;Ayna&#x27;, &#x27;Sabit ve güvenli&#x27;, FALSE),
+    (146, &#x27;Masa ya da diz&#x27;, &#x27;Sert olmayan yüzey tercih edin&#x27;, TRUE),
+    (147, &#x27;Sessiz oda&#x27;, &#x27;Yatmadan önce ideal&#x27;, FALSE),
+    (148, &#x27;Sessiz oda&#x27;, &#x27;Malzeme gerekmez&#x27;, TRUE),
+    (149, &#x27;İki yastık&#x27;, &#x27;Yumuşak&#x27;, FALSE),
+    (149, &#x27;Battaniye&#x27;, &#x27;İnce&#x27;, TRUE),
+    (150, &#x27;Farklı boyutta üç dört nesne&#x27;, &#x27;Kap, blok ya da kaşık&#x27;, FALSE),
+    (151, &#x27;Altı blok&#x27;, &#x27;Sessiz malzeme&#x27;, FALSE),
+    (152, &#x27;Üç dört doğal nesne&#x27;, &#x27;Taş, yaprak, kozalak; yıkanmış&#x27;, FALSE),
+    (152, &#x27;Tepsi&#x27;, &#x27;Nesneleri toplamak için&#x27;, TRUE),
+    (153, &#x27;Duygu yüzü kartları&#x27;, &#x27;Sade çizimli, dört duygu yeterli&#x27;, FALSE),
+    (154, &#x27;Sessiz oda&#x27;, &#x27;Yatmadan önce ideal&#x27;, TRUE),
+    (155, &#x27;Sessiz oda&#x27;, &#x27;Malzeme gerekmez&#x27;, TRUE),
+    (156, &#x27;Kâğıt&#x27;, &#x27;A5 yeterli&#x27;, FALSE),
+    (156, &#x27;Üç dört kalem&#x27;, &#x27;Sade renkler&#x27;, FALSE),
+    (157, &#x27;Kapaklı kutu&#x27;, &#x27;El sığacak açıklığı olan&#x27;, FALSE),
+    (157, &#x27;Bir nesne&#x27;, &#x27;Tanıdık, güvenli&#x27;, FALSE),
+    (158, &#x27;Sessiz oda&#x27;, &#x27;Malzeme gerekmez&#x27;, TRUE),
+    (159, &#x27;Kâğıt&#x27;, &#x27;A5 yeterli&#x27;, FALSE),
+    (159, &#x27;Kalem&#x27;, &#x27;Tek renk yeterli&#x27;, FALSE),
+    (160, &#x27;Kum saati ya da telefon zamanlayıcısı&#x27;, &#x27;Sesi kapalı olsun&#x27;, FALSE),
+    (161, &#x27;Kâğıt&#x27;, &#x27;A4, üçe katlanacak&#x27;, FALSE),
+    (161, &#x27;Kalemler&#x27;, &#x27;Sade renkler&#x27;, FALSE),
+    (162, &#x27;Kâğıt&#x27;, &#x27;A5 yeterli&#x27;, FALSE),
+    (162, &#x27;Kalem&#x27;, &#x27;Uçu küt&#x27;, FALSE);
+
+DELETE FROM activity_outcomes WHERE activity_id IN (129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162);
+INSERT INTO activity_outcomes (activity_id, outcome) VALUES
+    (129, &#x27;Gövde rotasyonunu destekler&#x27;),
+    (129, &#x27;Boyun kontrolünü güçlendirir&#x27;),
+    (129, &#x27;Dokunsal güven duygusunu besler&#x27;),
+    (130, &#x27;Amaçlı uzanmayı destekler&#x27;),
+    (130, &#x27;Gövde çevirmeyi çalıştırır&#x27;),
+    (130, &#x27;El göz koordinasyonunu başlatır&#x27;),
+    (131, &#x27;Sesin yönünü bulmayı destekler&#x27;),
+    (131, &#x27;Dil girdisini artırır&#x27;),
+    (131, &#x27;Karşılıklı sıra almanın temelini atar&#x27;),
+    (132, &#x27;Görsel takibi geliştirir&#x27;),
+    (132, &#x27;Odaklanma süresini uzatır&#x27;),
+    (132, &#x27;Sakin uyanıklık halini destekler&#x27;),
+    (133, &#x27;Sakinleşme becerisini destekler&#x27;),
+    (133, &#x27;Bağlanmayı güçlendirir&#x27;),
+    (133, &#x27;Nefes ritmini düzenler&#x27;),
+    (134, &#x27;Nesne sürekliliğini destekler&#x27;),
+    (134, &#x27;Problem çözmeyi başlatır&#x27;),
+    (134, &#x27;Bekleme ve arama davranışını çalıştırır&#x27;),
+    (135, &#x27;Dengeyi güçlendirir&#x27;),
+    (135, &#x27;Adım kontrolünü geliştirir&#x27;),
+    (135, &#x27;Zemin değişimine uyumu destekler&#x27;),
+    (136, &#x27;Taklit becerisini geliştirir&#x27;),
+    (136, &#x27;Büyük kasları çalıştırır&#x27;),
+    (136, &#x27;Beden farkındalığını artırır&#x27;),
+    (137, &#x27;Kelime dağarcığını genişletir&#x27;),
+    (137, &#x27;Ortak dikkat kurar&#x27;),
+    (137, &#x27;Kitapla ilişkiyi başlatır&#x27;),
+    (138, &#x27;Sıra almayı öğretir&#x27;),
+    (138, &#x27;Karşılıklı etkileşimi güçlendirir&#x27;),
+    (138, &#x27;El göz koordinasyonunu destekler&#x27;),
+    (139, &#x27;Sınıflandırmanın temelini atar&#x27;),
+    (139, &#x27;İnce motor kontrolü geliştirir&#x27;),
+    (139, &#x27;Sıralı adım takibini çalıştırır&#x27;),
+    (140, &#x27;Sakin gözlem alışkanlığı kazandırır&#x27;),
+    (140, &#x27;Doğa farkındalığını artırır&#x27;),
+    (140, &#x27;Dikkat süresini uzatır&#x27;),
+    (141, &#x27;Karşılıklı konuşmayı geliştirir&#x27;),
+    (141, &#x27;Kelime kullanımını artırır&#x27;),
+    (141, &#x27;Sıra almayı pekiştirir&#x27;),
+    (142, &#x27;Kelime dağarcığını genişletir&#x27;),
+    (142, &#x27;Görsel tanımayı geliştirir&#x27;),
+    (142, &#x27;Adlandırma güvenini artırır&#x27;),
+    (143, &#x27;Kendini yatıştırmayı öğretir&#x27;),
+    (143, &#x27;Nefes farkındalığı kazandırır&#x27;),
+    (143, &#x27;Sakinleşme rutini kurar&#x27;),
+    (144, &#x27;Eşleştirme becerisini geliştirir&#x27;),
+    (144, &#x27;Benzerlik kavramını kurar&#x27;),
+    (144, &#x27;Odaklanma süresini uzatır&#x27;),
+    (145, &#x27;Duygu tanımayı geliştirir&#x27;),
+    (145, &#x27;Yüz ifadesi taklidini çalıştırır&#x27;),
+    (145, &#x27;Duygu kelimelerini öğretir&#x27;),
+    (146, &#x27;Ritim algısını geliştirir&#x27;),
+    (146, &#x27;İşitsel belleği çalıştırır&#x27;),
+    (146, &#x27;Taklit becerisini güçlendirir&#x27;),
+    (147, &#x27;Anlatı kurmayı geliştirir&#x27;),
+    (147, &#x27;Olay sıralamasını çalıştırır&#x27;),
+    (147, &#x27;Kelime dağarcığını genişletir&#x27;),
+    (148, &#x27;Varsayımsal düşünmeyi başlatır&#x27;),
+    (148, &#x27;Neden sonuç bağı kurar&#x27;),
+    (148, &#x27;Cümle kurma becerisini geliştirir&#x27;),
+    (149, &#x27;Kendi alanını tanımlamayı öğretir&#x27;),
+    (149, &#x27;Sakinleşme stratejisi kazandırır&#x27;),
+    (149, &#x27;Öz-yönetimi destekler&#x27;),
+    (150, &#x27;Sıralama kuralını öğretir&#x27;),
+    (150, &#x27;Boyut kavramını kurar&#x27;),
+    (150, &#x27;Planlı düşünmeyi çalıştırır&#x27;),
+    (151, &#x27;Sıra beklemeyi öğretir&#x27;),
+    (151, &#x27;Sabrı geliştirir&#x27;),
+    (151, &#x27;Kurala uymayı çalıştırır&#x27;),
+    (152, &#x27;Doku ayırt etmeyi geliştirir&#x27;),
+    (152, &#x27;Bağımsız keşfi destekler&#x27;),
+    (152, &#x27;Doğa farkındalığını artırır&#x27;),
+    (153, &#x27;Duygu kelimelerini geliştirir&#x27;),
+    (153, &#x27;Kendi duygusunu tanımayı öğretir&#x27;),
+    (153, &#x27;Empatinin temelini atar&#x27;),
+    (154, &#x27;Olumlu duyguyu fark etmeyi öğretir&#x27;),
+    (154, &#x27;İfade becerisini geliştirir&#x27;),
+    (154, &#x27;Gün kapanış rutini kurar&#x27;),
+    (155, &#x27;Yaratıcı anlatıyı geliştirir&#x27;),
+    (155, &#x27;Sıra almayı pekiştirir&#x27;),
+    (155, &#x27;Cümle kurma becerisini güçlendirir&#x27;),
+    (156, &#x27;Duyguyu sözsüz ifade etmeyi öğretir&#x27;),
+    (156, &#x27;Kendi halini fark etmesini sağlar&#x27;),
+    (156, &#x27;Günlük duygu takibi kurar&#x27;),
+    (157, &#x27;Akıl yürütmeyi geliştirir&#x27;),
+    (157, &#x27;Dokunsal ayırt etmeyi çalıştırır&#x27;),
+    (157, &#x27;Tarif etme dilini geliştirir&#x27;),
+    (158, &#x27;Bakış açısı almayı geliştirir&#x27;),
+    (158, &#x27;Sosyal problem çözmeyi öğretir&#x27;),
+    (158, &#x27;Empatiyi güçlendirir&#x27;),
+    (159, &#x27;Planlama becerisini geliştirir&#x27;),
+    (159, &#x27;Sorumluluk duygusu kazandırır&#x27;),
+    (159, &#x27;Zaman kavramını güçlendirir&#x27;),
+    (160, &#x27;Bekleme becerisini geliştirir&#x27;),
+    (160, &#x27;İşitsel dikkati artırır&#x27;),
+    (160, &#x27;Dürtü kontrolünü güçlendirir&#x27;),
+    (161, &#x27;Anlatı kurgusunu geliştirir&#x27;),
+    (161, &#x27;Yaratıcı üretimi destekler&#x27;),
+    (161, &#x27;Bağımsız çalışmayı çalıştırır&#x27;),
+    (162, &#x27;Uzamsal planlamayı geliştirir&#x27;),
+    (162, &#x27;Deneme yanılma stratejisi kurar&#x27;),
+    (162, &#x27;Odaklanma süresini uzatır&#x27;);
+
+SELECT setval(pg_get_serial_sequence(&#x27;activities&#x27;,&#x27;id&#x27;), (SELECT COALESCE(MAX(id),1) FROM activities), true);
+
+COMMIT;</code></pre></div>
+  </details>
+</section>
+
+<section>
+  <h2>Doğrulama</h2>
+  <p>Uygulama açıldıktan sonra bu sorgu <strong>162 / 128 / 34</strong> dönmeli:</p>
+  <pre><code>SELECT count(*)                                        AS toplam,
+       count(*) FILTER (WHERE id BETWEEN 1 AND 128)   AS temel,
+       count(*) FILTER (WHERE id BETWEEN 129 AND 162) AS sakin_havuz
+FROM activities;</code></pre>
+</section>
+
+<section>
+  <h2>Test sonuçları</h2>
+  <p>T1–T12 senaryoları, Ufkum'un <code>f0192ec</code> kodu üzerinde, gerçek HTTP çağrılarıyla koşuldu
+  (kayıt → doğrulama → login → çocuk → anket → <code>/daily-plan/today</code>).
+  Kapsam yalnız onboarding sonrası ilk plan; oylama ve geri bildirim kodda yok.</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Aşama</th><th>Sonuç</th><th>Not</th></tr></thead>
+      <tbody>
+        <tr><td>Boş plan sorunu</td><td><span class="pill ok">çözüldü</span></td><td>12/12 test plan üretti; C4 + kaygı 5 havuzu 2'den 7'ye çıktı</td></tr>
+        <tr><td>Profil türetme</td><td><span class="pill ok">12/12</span></td><td>tip, kaygı, yaş bandı doğru</td></tr>
+        <tr><td>Havuz büyüklüğü</td><td><span class="pill ok">12/12</span></td><td>30, 7, 8, 28, 30, 30, 14, 8, 5, 6, 7, 7 — dokümanla birebir</td></tr>
+        <tr><td>Skor — C1, C2, C3, MIXED</td><td><span class="pill ok">tam isabet</span></td><td>D, P, Z, B dört profilde de birebir</td></tr>
+        <tr><td>Skor — C4</td><td><span class="pill warn">sapma</span></td><td>motor D=0 alıyor, doküman 5/5/3 ile hesaplamış</td></tr>
+        <tr><td>Etkinlik seçimi</td><td><span class="pill warn">8/11</span></td><td>T2, T3, T5 sapıyor; üçü de beraberlik kaynaklı</td></tr>
+        <tr><td>Yuva etiketleri</td><td><span class="pill bad">12/12 sapma</span></td><td>toplam skor maksimize ediliyor, beraberlikte kura</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Planların kaynağı</h3>
+  <p>Sakin havuzun işe yaradığını en net gösteren tablo — sakin çocuklar eski havuzdan besleniyor,
+  korunmacı çocukların planları tamamen yeni etkinliklerden oluşuyor:</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Test</th><th>Profil</th><th class="num">Plandaki etkinlik</th><th class="num">Sakin havuzdan</th></tr></thead>
+      <tbody>
+        <tr><td>T1</td><td>C1</td><td class="num">3</td><td class="num">0</td></tr>
+        <tr><td>T2</td><td>C4 · kaygı 5</td><td class="num">3</td><td class="num">3</td></tr>
+        <tr><td>T3</td><td>C4 · kaygı 2</td><td class="num">3</td><td class="num">3</td></tr>
+        <tr><td>T4</td><td>C3 · kaygı 5</td><td class="num">3</td><td class="num">1</td></tr>
+        <tr><td>T5</td><td>C2</td><td class="num">3</td><td class="num">0</td></tr>
+        <tr><td>T6</td><td>MIXED</td><td class="num">3</td><td class="num">0</td></tr>
+        <tr><td>T7</td><td>C4 · 8 ay</td><td class="num">3</td><td class="num">3</td></tr>
+        <tr><td>T8</td><td>C4 · 18 ay</td><td class="num">3</td><td class="num">3</td></tr>
+        <tr><td>T9</td><td>C4 · 54 ay</td><td class="num">3</td><td class="num">3</td></tr>
+        <tr><td>T10</td><td>C4 · 66 ay</td><td class="num">3</td><td class="num">3</td></tr>
+        <tr><td>T11</td><td>C4 · 20 dk</td><td class="num">3</td><td class="num">3</td></tr>
+        <tr><td>T12</td><td>C4 · 10 dk</td><td class="num">2</td><td class="num">2</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Karar bekleyen üç konu</h2>
+
+  <h3>1 · C4 çocukta duyusal ceza</h3>
+  <p><code>dunn_profiles</code> tablosunda C4'ün toleransı dolu (1/2/2) ama üç katsayısı da
+  <code>NULL</code>. Motor çarpacak sayı bulamıyor, ceza 0 çıkıyor. Model metni de bunu söylüyor:
+  <em>"Ç4: katsayı yok, ceza hesabı yapılmaz, eleme uygulanır."</em>
+  Test dokümanı ise her C4 testinde D'yi C1'in katsayılarıyla (5/5/3) hesaplamış — üstelik kendi
+  profil tablosunda "hesaplanmaz" yazarken.</p>
+  <p>Bu sadece puan farkı değil, <strong>seçimi değiştiriyor</strong>. T2 havuzu iki senaryoda:</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th class="num">id</th><th>Etkinlik</th><th>Yük</th><th class="num">D=0 (kod)</th><th class="num">D=5/5/3 (doküman)</th></tr></thead>
+      <tbody>
+        <tr><td class="num">141</td><td>Fısıltı kuklası sohbeti</td><td>2/2/1</td><td class="num">155.25</td><td class="num">146.05</td></tr>
+        <tr><td class="num">143</td><td>Yavaş nefes balonu sessiz</td><td>1/1/1</td><td class="num">138.00</td><td class="num">128.80</td></tr>
+        <tr><td class="num">145</td><td>Duygu yüzleri aynada</td><td>1/2/1</td><td class="num">138.00</td><td class="num">134.55</td></tr>
+        <tr><td class="num">146</td><td>Sessiz ritim: parmak ucuyla</td><td>2/1/2</td><td class="num">138.00</td><td class="num">126.50</td></tr>
+        <tr><td class="num">144</td><td>İkişer eşleştirme sessiz</td><td>1/2/1</td><td class="num">138.00</td><td class="num">134.55</td></tr>
+        <tr><td class="num">142</td><td>Bu ne oyunu sade kartlarla</td><td>1/2/1</td><td class="num">132.25</td><td class="num">128.80</td></tr>
+        <tr><td class="num">71</td><td>Bitki sulama görevi</td><td>2/2/2</td><td class="num">115.00</td><td class="num">109.25</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>D=0 iken <strong>dört etkinlik 138.00'de eşitleniyor</strong> ve seçimi kura yapıyor.
+  D=5/5/3 iken ayrışıyorlar ve ilk üç tam olarak dokümanın beklediği 141, 144, 145 oluyor.</p>
+
+  <h3>2 · Yuva etiketleri</h3>
+  <p><code>DailyPortfolioBuilder.build()</code> yuva başına en iyiyi seçmiyor; üçlünün
+  <strong>toplam</strong> skorunu maksimize edip beraberlikte kura çekiyor. Toplam her dağılımda aynı
+  olduğu için etiketi kura belirliyor. T1'de aynı üç kart, aynı üç skor, farklı etiket:</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Yuva</th><th>Doküman</th><th>Ölçülen</th></tr></thead>
+      <tbody>
+        <tr><td>GELİŞİM</td><td>8 — 127.0</td><td>67 — 124.0</td></tr>
+        <tr><td>GÜÇLENDİRME</td><td>67 — 124.0</td><td>80 — 120.0</td></tr>
+        <tr><td>KEŞİF</td><td>80 — 120.0</td><td><strong>8 — 127.0</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Model "GELİŞİM = dönem görevi domain'inden en yüksek skor" diyor; id 8 (LANGUAGE, 127)
+  GELİŞİM olmalıydı. Uygulamada <code>Random</code> sabitlenmediği için aynı çocukta her istekte
+  etiket değişebilir.</p>
+
+  <h3>3 · Testin veri kaynağı</h3>
+  <p><code>RecommendationScenarioTest</code> sakin havuz eklendikten sonra da <strong>geçiyor (11/11)</strong>
+  — çünkü veritabanına bakmıyor, yalnızca tek bir dosyayı metin olarak okuyor:</p>
+  <pre><code>private static final String ACTIVITY_SEED = "db/migration/V10__kidloop_128_home_activities.sql";</code></pre>
+  <p>Sonuç: test yeşil kalıyor ama artık ürünün gerçek davranışını ölçmüyor. Test dünyasında
+  128 etkinlik ve C4'te boş plan var; gerçek veritabanında 162 etkinlik ve dolu plan var.
+  Ayrıca test kurayı sabitliyor (<code>new Random(){ nextInt → 0 }</code>), uygulama sabitlemiyor —
+  bu yüzden 2. maddedeki yuva karışması testte hiç görünmüyor.</p>
+  <p class="muted">Senaryo 11'in adı <em>"protective profile content gap"</em> ve beklenen sonucu
+  boş plan. Yani Gülçin'in bildirdiği sorun, testin doğru davranışı olarak sabitlenmiş durumda.</p>
+</section>
+
+<section>
+  <h2>Koşulamayan ve düzeltilmesi gerekenler</h2>
+  <ul class="plain">
+    <li><strong>T11 koşulamadı.</strong> Doküman 15 dk bütçe istiyor; şema yalnız 10/20/30 kabul ediyor
+    (<code>chk_parent_profiles_time_budget</code>, Q7 seçenekleri A=10, B=20, C=30). Bilgi amaçlı
+    20 dk ile koşuldu, havuz 7 çıktı; karşılaştırma yapılmadı.</li>
+    <li><strong>T3 kendiyle çelişiyor.</strong> Girdi "Çoğunlukla rahat" (kaygı 2), beklenen profil
+    tablosu "kaygı 1" diyor. Skoru etkilemiyor, ikisi de eşiğin altında.</li>
+    <li><strong>Skor 100'de kesilmiyor.</strong> <code>score_display_max = 100</code> parametresi var ve
+    açıklaması "parent-facing clamped score" diyor; <code>ActivityScorer</code> clamp'li değeri
+    hesaplıyor ama <code>ActivityMatchingService</code> ham skoru kaydedip döndürüyor.
+    API'den 155.25 gibi değerler çıkıyor.</li>
+  </ul>
+</section>
+
+<footer>
+  <p><strong>Bu sayfa neden var:</strong> bu oturumun GitHub erişimi salt-okunur
+  (<code>push</code>, <code>fork</code>, yeni depo — üçü de 403 döndü), bu yüzden dosyalar doğrudan
+  repoya konulamadı. İçerik burada, kopyalanmaya hazır.</p>
+  <p>Ölçümlerin tamamı lokal bir kopyada alındı: Ufkum'un <code>f0192ec</code> kodu, değiştirilmeden,
+  yanına yalnız bu iki SQL dosyası eklenerek. <code>src/main/java</code> ve <code>src/test/java</code>
+  altında tek satır değişiklik yok.</p>
+</footer>
+
+</div>
