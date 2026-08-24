@@ -127,6 +127,24 @@ class ActivityMatchingServiceTest {
     }
 
     @Test
+    void selectionResponseContainsOnlyTheRequestedActivity() {
+        Child child = new Child();
+        child.setId(9L);
+        DailyPlan plan = new DailyPlan(9L, LocalDate.now());
+        plan.add(activity(15L), PlanSlotType.STRENGTHEN, BigDecimal.TEN);
+        plan.add(activity(16L), PlanSlotType.DEVELOP, BigDecimal.ONE);
+        plan.add(activity(17L), PlanSlotType.EXPLORE, BigDecimal.ZERO);
+        when(planRepository.findByChildIdAndPlanDate(9L, LocalDate.now()))
+                .thenReturn(Optional.of(plan));
+        when(planRepository.save(plan)).thenReturn(plan);
+
+        DailyPlanResponse response = service.selectActivity(child, 16L);
+
+        assertEquals(1, response.activities().size());
+        assertEquals(16L, response.activities().getFirst().activityId());
+    }
+
+    @Test
     void refusesToGenerateANewPlanWithoutRequiredConsents() {
         Child child = new Child();
         child.setId(9L);
@@ -143,5 +161,11 @@ class ActivityMatchingServiceTest {
         assertThrows(RequiredConsentMissingException.class, () -> service.today(child));
         verify(profileRepository, never()).findByChildIdAndCurrentTrue(9L);
         verify(planRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    private Activity activity(Long id) {
+        Activity activity = new Activity();
+        ReflectionTestUtils.setField(activity, "id", id);
+        return activity;
     }
 }
