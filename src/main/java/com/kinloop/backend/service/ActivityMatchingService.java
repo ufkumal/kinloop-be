@@ -118,6 +118,8 @@ public class ActivityMatchingService {
     public DailyPlanResponse selectActivity(Child child, Long activityId) {
         DailyPlan plan = planRepository.findByChildIdAndPlanDate(child.getId(), LocalDate.now())
                 .orElseThrow(() -> new DailyPlanNotFoundException(child.getId()));
+        plan.prepareSelection(activityId);
+        planRepository.saveAndFlush(plan);
         plan.select(activityId);
         return response(planRepository.save(plan), child);
     }
@@ -146,8 +148,34 @@ public class ActivityMatchingService {
     private DailyActivityResponse response(DailyPlanItem item) {
         Activity a = item.getActivity();
         ActivityInstruction i = a.getInstruction();
-        return new DailyActivityResponse(a.getId(), a.getTitle(), a.getDescription(), a.getDurationMinutes(), item.getSlotType().name(), item.getScore(),
-                i == null ? null : i.getIntro(), i == null ? null : i.getPurpose(), i == null ? null : i.getWhyItMatters(), i == null ? null : i.getEasierVariation(), i == null ? null : i.getHarderVariation(), i == null ? null : i.getObservationTip(),
-                item.isWithinBudget(), item.isRepeatNotice(), item.isSelected());
+        List<ActivityStepResponse> steps = a.getSteps().stream()
+                .sorted(Comparator.comparingInt(ActivityStep::getStepNo))
+                .map(step -> new ActivityStepResponse(step.getStepNo(), step.getText()))
+                .toList();
+        List<ActivityMaterialResponse> materials = a.getMaterials().stream()
+                .sorted(Comparator.comparingInt(ActivityMaterial::getDisplayOrder)
+                        .thenComparing(ActivityMaterial::getId))
+                .map(material -> new ActivityMaterialResponse(
+                        material.getName(), material.getCategory(), material.getQuantity(),
+                        material.isOptional(), material.getDisplayOrder(), material.getNote()))
+                .toList();
+        List<ActivityOutcomeResponse> outcomes = a.getOutcomes().stream()
+                .sorted(Comparator.comparingInt(ActivityOutcome::getDisplayOrder)
+                        .thenComparing(ActivityOutcome::getId))
+                .map(outcome -> new ActivityOutcomeResponse(
+                        outcome.getDisplayOrder(), outcome.getOutcome()))
+                .toList();
+        return new DailyActivityResponse(
+                item.getId(), a.getId(), a.getTitle(), a.getDescription(),
+                a.getMinAgeMonths(), a.getMaxAgeMonths(), a.getTargetIntelligence(),
+                a.getSecondaryIntelligence(), a.getTargetDomain(), a.getDifficulty(),
+                a.getDurationMinutes(), a.getInvolvementType(), a.getNoiseLoad(),
+                a.getVisualLoad(), a.getPhysicalIntensity(), item.getSlotType().name(), item.getScore(),
+                i == null ? null : i.getIntro(), i == null ? null : i.getPurpose(),
+                i == null ? null : i.getWhyItMatters(), i == null ? null : i.getEasierVariation(),
+                i == null ? null : i.getHarderVariation(), i == null ? null : i.getObservationTip(),
+                i == null ? null : i.getSafetyNotes(), i == null ? null : i.getCleanupNotes(),
+                steps, materials, outcomes, item.isWithinBudget(), item.isRepeatNotice(),
+                item.isSelected(), item.isCompleted(), item.getSelectedAt(), item.getCompletedAt());
     }
 }

@@ -177,9 +177,7 @@ components:
           format: date
         gender:
           $ref: '#/components/schemas/Gender'
-        dailyTimeBudgetOptionCode:
-          type: string
-      required: [birthDate, dailyTimeBudgetOptionCode]
+      required: [birthDate]
 
     DailyTimeBudgetOptionResponse:
       type: object
@@ -264,6 +262,129 @@ components:
           minimum: 0
           maximum: 3
 
+    ActivityStepResponse:
+      type: object
+      required: [stepNo, text]
+      properties:
+        stepNo:
+          type: integer
+        text:
+          type: string
+
+    ActivityMaterialResponse:
+      type: object
+      required: [name, optional, displayOrder]
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+        quantity:
+          type: string
+        optional:
+          type: boolean
+        displayOrder:
+          type: integer
+        note:
+          type: string
+
+    ActivityOutcomeResponse:
+      type: object
+      required: [displayOrder, outcome]
+      properties:
+        displayOrder:
+          type: integer
+        outcome:
+          type: string
+
+    DailyActivityResponse:
+      type: object
+      required: [dailyPlanItemId, activityId, title, minAgeMonths, maxAgeMonths,
+                 targetIntelligence, targetDomain, difficulty, durationMinutes,
+                 involvementType, noiseLoad, visualLoad, physicalIntensity, slotType,
+                 score, steps, materials, outcomes, withinBudget, repeatNotice,
+                 selected, completed]
+      properties:
+        dailyPlanItemId:
+          type: integer
+          format: int64
+        activityId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        description:
+          type: string
+        minAgeMonths:
+          type: integer
+        maxAgeMonths:
+          type: integer
+        targetIntelligence:
+          type: string
+        secondaryIntelligence:
+          type: string
+        targetDomain:
+          type: string
+        difficulty:
+          type: integer
+        durationMinutes:
+          type: integer
+        involvementType:
+          type: string
+        noiseLoad:
+          type: integer
+        visualLoad:
+          type: integer
+        physicalIntensity:
+          type: integer
+        slotType:
+          type: string
+          enum: [STRENGTHEN, DEVELOP, EXPLORE]
+        score:
+          type: number
+        intro:
+          type: string
+        purpose:
+          type: string
+        whyItMatters:
+          type: string
+        easierVariation:
+          type: string
+        harderVariation:
+          type: string
+        observationTip:
+          type: string
+        safetyNotes:
+          type: string
+        cleanupNotes:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityStepResponse'
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityMaterialResponse'
+        outcomes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityOutcomeResponse'
+        withinBudget:
+          type: boolean
+        repeatNotice:
+          type: boolean
+        selected:
+          type: boolean
+        completed:
+          type: boolean
+        selectedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+
     DailyPlanResponse:
       type: object
       required: [planId, childId, planDate, budgetMin, budgetMax, committedDurationMinutes,
@@ -291,7 +412,7 @@ components:
         activities:
           type: array
           items:
-            type: object
+            $ref: '#/components/schemas/DailyActivityResponse'
         state:
           type: string
         message:

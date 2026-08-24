@@ -28,4 +28,8 @@ public class ActivityInstruction {
     private String harderVariation;
     @Column(name = "observation_tip", columnDefinition = "TEXT")
     private String observationTip;
+    @Column(name = "safety_notes", columnDefinition = "TEXT")
+    private String safetyNotes;
+    @Column(name = "cleanup_notes", columnDefinition = "TEXT")
+    private String cleanupNotes;
 }

@@ -4,7 +4,6 @@ import com.kinloop.backend.entity.Child;
 import com.kinloop.backend.entity.enums.PreferenceMode;
 import com.kinloop.backend.repository.ChildRepository;
 import com.kinloop.backend.repository.ParentProfileRepository;
-import com.kinloop.backend.dto.onboarding.DailyTimeBudgetRange;
 import com.kinloop.backend.dto.child.CreateChildRequest;
 import com.kinloop.backend.dto.child.CreateChildResponse;
 import com.kinloop.backend.dto.child.SessionSummaryResponse;
@@ -29,7 +28,6 @@ public class ChildService {
     private final ChildRepository childRepository;
     private final ParentProfileRepository parentProfileRepository;
     private final QuestionnaireSessionService questionnaireSessionService;
-    private final OnboardingService onboardingService;
 
     @Transactional
     public CreateChildResponse createChild(Long parentProfileId, CreateChildRequest request) {
@@ -42,8 +40,6 @@ public class ChildService {
         parentProfileRepository.findById(parentProfileId)
                 .filter(profile -> profile.getDeletedAt() == null)
                 .orElseThrow(() -> new IllegalStateException("Parent profile not found"));
-        DailyTimeBudgetRange budget = onboardingService.resolveDailyTimeBudget(
-                request.dailyTimeBudgetOptionCode(), ageMonths);
 
         Child child = new Child();
         child.setParentId(parentProfileId);
@@ -51,8 +47,6 @@ public class ChildService {
         child.setBirthDate(request.birthDate());
         child.setGender(request.gender());
         child.setPreferenceMode(PreferenceMode.BALANCED);
-        child.setDailyTimeBudgetMin(budget.minMinutes());
-        child.setDailyTimeBudgetMax(budget.maxMinutes());
 
         Child savedChild = childRepository.save(child);
         QuestionnaireSession session = questionnaireSessionService.openInitialSession(savedChild.getId(), ageMonths);
