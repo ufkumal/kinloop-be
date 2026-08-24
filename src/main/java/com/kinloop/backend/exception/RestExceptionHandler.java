@@ -105,6 +105,11 @@ public class RestExceptionHandler {
         return error(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(RequiredConsentMissingException.class)
+    public ResponseEntity<ApiErrorResponse> handleRequiredConsentMissing(RequiredConsentMissingException ex) {
+        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ApiErrorResponse>  handleIllegalState(IllegalStateException ex) {
         return  error(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());

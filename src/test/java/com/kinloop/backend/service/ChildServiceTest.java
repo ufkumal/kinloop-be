@@ -1,6 +1,9 @@
 package com.kinloop.backend.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -8,6 +11,8 @@ import static org.mockito.Mockito.when;
 
 import com.kinloop.backend.dto.child.CreateChildRequest;
 import com.kinloop.backend.dto.child.SessionSummaryResponse;
+import com.kinloop.backend.dto.child.UpdateChildRequest;
+import com.kinloop.backend.dto.child.UpdateChildResponse;
 import com.kinloop.backend.entity.Child;
 import com.kinloop.backend.entity.ParentProfile;
 import com.kinloop.backend.entity.QuestionnaireSession;
@@ -17,6 +22,7 @@ import com.kinloop.backend.entity.enums.TriggerReason;
 import com.kinloop.backend.repository.ChildRepository;
 import com.kinloop.backend.repository.ParentProfileRepository;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -61,9 +67,47 @@ class ChildServiceTest {
         verify(parentProfileRepository, never()).save(any());
     }
 
+    @Test
+    void profileCanUpdateOwnedChildIdentityWithinTheSameAgeBand() {
+        Child child = child(18);
+        when(childRepository.findByIdAndParentIdAndDeletedAtIsNull(2L, 1L)).thenReturn(Optional.of(child));
+
+        UpdateChildResponse response = service.updateChild(
+                2L, 1L, new UpdateChildRequest("  Ada Updated  ", LocalDate.now().minusMonths(19), Gender.FEMALE));
+
+        assertEquals("Ada Updated", response.fullName());
+        assertFalse(response.questionnaireRestarted());
+        verify(childRepository).saveAndFlush(child);
+        verify(questionnaireSessionService, never()).current(any());
+    }
+
+    @Test
+    void ageBandCorrectionRestartsQuestionnaireAndHomeOnboarding() {
+        Child child = child(30);
+        child.setOnboardingCompletedAt(OffsetDateTime.now());
+        when(childRepository.findByIdAndParentIdAndDeletedAtIsNull(2L, 1L)).thenReturn(Optional.of(child));
+
+        UpdateChildResponse response = service.updateChild(
+                2L, 1L, new UpdateChildRequest("Ada", LocalDate.now().minusMonths(18), Gender.FEMALE));
+
+        assertTrue(response.questionnaireRestarted());
+        assertNull(child.getOnboardingCompletedAt());
+        verify(questionnaireSessionService).current(child);
+    }
+
     private ParentProfile parent() {
         ParentProfile parent = new ParentProfile();
         parent.setId(1L);
         return parent;
+    }
+
+    private Child child(int ageMonths) {
+        Child child = new Child();
+        child.setId(2L);
+        child.setParentId(1L);
+        child.setFullName("Ada");
+        child.setBirthDate(LocalDate.now().minusMonths(ageMonths));
+        child.setGender(Gender.FEMALE);
+        return child;
     }
 }

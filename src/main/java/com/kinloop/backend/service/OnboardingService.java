@@ -55,6 +55,7 @@ public class OnboardingService {
         DailyTimeBudgetRange range = requiredTimeBudget(option);
         child.setDailyTimeBudgetMin(range.minMinutes());
         child.setDailyTimeBudgetMax(range.maxMinutes());
+        child.setDailyTimeBudgetAnsweredAt(OffsetDateTime.now());
         childRepository.save(child);
         return new DailyTimeBudgetResponse(option.getCode(), range.minMinutes(), range.maxMinutes());
     }
@@ -184,6 +185,9 @@ public class OnboardingService {
     }
 
     private String answeredOptionCode(Question question, Child child) {
+        if (child.getDailyTimeBudgetAnsweredAt() == null) {
+            return null;
+        }
         return question.getOptions().stream()
                 .filter(option -> option.getDailyTimeBudgetMin() != null && option.getDailyTimeBudgetMax() != null)
                 .filter(option -> child.getDailyTimeBudgetMin() == option.getDailyTimeBudgetMin()

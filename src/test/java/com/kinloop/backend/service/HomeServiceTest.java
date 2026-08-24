@@ -8,8 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 import com.kinloop.backend.dto.home.HomeStatusResponse;
+import com.kinloop.backend.dto.questionnaire.CurrentQuestionnaireResponse;
 import com.kinloop.backend.entity.Activity;
 import com.kinloop.backend.entity.ActivityInstruction;
 import com.kinloop.backend.entity.Child;
@@ -19,9 +21,14 @@ import com.kinloop.backend.entity.Feedback;
 import com.kinloop.backend.entity.enums.FeedbackReason;
 import com.kinloop.backend.entity.enums.FeedbackType;
 import com.kinloop.backend.entity.enums.PlanSlotType;
+import com.kinloop.backend.entity.enums.AgeBand;
+import com.kinloop.backend.entity.enums.SessionStatus;
+import com.kinloop.backend.entity.enums.TriggerReason;
 import com.kinloop.backend.repository.ChildRepository;
 import com.kinloop.backend.repository.DailyPlanItemRepository;
 import com.kinloop.backend.repository.FeedbackRepository;
+import com.kinloop.backend.repository.ParentProfileRepository;
+import com.kinloop.backend.entity.ParentProfile;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -42,19 +49,27 @@ class HomeServiceTest {
     @Mock private DailyPlanItemRepository dailyPlanItemRepository;
     @Mock private FeedbackRepository feedbackRepository;
     @Mock private ChildService childService;
+    @Mock private ParentProfileRepository parentProfileRepository;
+    @Mock private ConsentService consentService;
+    @Mock private QuestionnaireSessionService questionnaireSessionService;
 
     private HomeService service;
 
     @BeforeEach
     void setUp() {
         service = new HomeService(
-                childRepository, dailyPlanItemRepository, feedbackRepository, childService);
+                childRepository, dailyPlanItemRepository, feedbackRepository, childService,
+                parentProfileRepository, consentService, questionnaireSessionService);
+        ParentProfile parent = new ParentProfile();
+        parent.setId(1L);
+        parent.setUserId(101L);
+        lenient().when(parentProfileRepository.findById(1L)).thenReturn(Optional.of(parent));
+        lenient().when(consentService.firstMissingRequiredConsentId(101L)).thenReturn(Optional.empty());
     }
 
     @Test
     void parentWithoutChildReceivesNewUser() {
-        when(childRepository.existsByParentIdAndOnboardingCompletedAtIsNotNullAndDeletedAtIsNull(1L))
-                .thenReturn(false);
+        when(childRepository.findByParentIdAndDeletedAtIsNullOrderByIdAsc(1L)).thenReturn(List.of());
 
         HomeStatusResponse response = service.getStatus(1L);
 
@@ -62,19 +77,57 @@ class HomeServiceTest {
     }
 
     @Test
-    void parentWithIncompleteOnboardingReceivesNewUser() {
-        when(childRepository.existsByParentIdAndOnboardingCompletedAtIsNotNullAndDeletedAtIsNull(1L))
-                .thenReturn(false);
+    void parentWithIncompleteOnboardingReceivesHalfOnboardingUser() {
+        Child child = child(7L, 1L, "Ada");
+        child.setOnboardingCompletedAt(null);
+        when(childRepository.findByParentIdAndDeletedAtIsNullOrderByIdAsc(1L)).thenReturn(List.of(child));
+        when(childService.displayName(any(Child.class), any(Integer.class))).thenReturn("Ada");
 
         HomeStatusResponse response = service.getStatus(1L);
 
-        assertEquals("new-user", response.state());
+        assertEquals("half-onboarding-user", response.state());
+        assertEquals("DAILY_TIME_BUDGET", response.onboardingStep().name());
+        assertEquals(7L, response.childId());
+    }
+
+    @Test
+    void incompleteQuestionnaireReturnsTheExactNextQuestion() {
+        Child child = child(7L, 1L, "Ada");
+        child.setOnboardingCompletedAt(null);
+        child.setDailyTimeBudgetAnsweredAt(OffsetDateTime.now());
+        when(childRepository.findByParentIdAndDeletedAtIsNullOrderByIdAsc(1L)).thenReturn(List.of(child));
+        when(childService.displayName(any(Child.class), any(Integer.class))).thenReturn("Ada");
+        when(questionnaireSessionService.current(child)).thenReturn(new CurrentQuestionnaireResponse(
+                3L, SessionStatus.IN_PROGRESS, TriggerReason.INITIAL, AgeBand.BAND_12_24,
+                18, 4, 2, "Q4", List.of()));
+
+        HomeStatusResponse response = service.getStatus(1L);
+
+        assertEquals("half-onboarding-user", response.state());
+        assertEquals("QUESTIONNAIRE", response.onboardingStep().name());
+        assertEquals("Q4", response.nextQuestionCode());
+    }
+
+    @Test
+    void completedQuestionnaireWithoutRequiredConsentsResumesAtConsents() {
+        Child child = child(7L, 1L, "Ada");
+        when(childRepository.findByParentIdAndDeletedAtIsNullOrderByIdAsc(1L)).thenReturn(List.of(child));
+        when(childService.displayName(any(Child.class), any(Integer.class))).thenReturn("Ada");
+        when(consentService.firstMissingRequiredConsentId(101L)).thenReturn(Optional.of(5L));
+
+        HomeStatusResponse response = service.getStatus(1L);
+
+        assertEquals("half-onboarding-user", response.state());
+        assertEquals("CONSENTS", response.onboardingStep().name());
+        assertEquals(5L, response.nextConsentId());
+        assertFalse(response.shouldGenerateDailyPlan());
     }
 
     @Test
     void parentWithCompletedOnboardingReceivesReturningUser() {
-        when(childRepository.existsByParentIdAndOnboardingCompletedAtIsNotNullAndDeletedAtIsNull(1L))
-                .thenReturn(true);
+        Child child = child(7L, 1L, "Ada");
+        when(childRepository.findByParentIdAndDeletedAtIsNullOrderByIdAsc(1L)).thenReturn(List.of(child));
+        when(childService.displayName(any(Child.class), any(Integer.class))).thenReturn("Ada");
 
         HomeStatusResponse response = service.getStatus(1L);
 
@@ -83,16 +136,10 @@ class HomeServiceTest {
 
     @Test
     void statusIsScopedToAuthenticatedParentProfile() {
-        when(childRepository.existsByParentIdAndOnboardingCompletedAtIsNotNullAndDeletedAtIsNull(1L))
-                .thenReturn(false);
-        when(childRepository.existsByParentIdAndOnboardingCompletedAtIsNotNullAndDeletedAtIsNull(2L))
-                .thenReturn(true);
+        when(childRepository.findByParentIdAndDeletedAtIsNullOrderByIdAsc(1L)).thenReturn(List.of());
 
         assertEquals("new-user", service.getStatus(1L).state());
-        assertEquals("returning-user", service.getStatus(2L).state());
-
-        verify(childRepository).existsByParentIdAndOnboardingCompletedAtIsNotNullAndDeletedAtIsNull(1L);
-        verify(childRepository).existsByParentIdAndOnboardingCompletedAtIsNotNullAndDeletedAtIsNull(2L);
+        verify(childRepository).findByParentIdAndDeletedAtIsNullOrderByIdAsc(1L);
     }
 
     @Test
@@ -107,8 +154,7 @@ class HomeServiceTest {
         DailyPlanItem item = plan.getItems().getFirst();
         ReflectionTestUtils.setField(item, "id", 41L);
 
-        when(childRepository.existsByParentIdAndOnboardingCompletedAtIsNotNullAndDeletedAtIsNull(1L))
-                .thenReturn(true);
+        when(childRepository.findByParentIdAndDeletedAtIsNullOrderByIdAsc(1L)).thenReturn(List.of(child));
         when(dailyPlanItemRepository.findLatestSelectedByParentId(any(Long.class), any(Pageable.class)))
                 .thenReturn(List.of(item));
         when(childRepository.findByIdAndParentIdAndDeletedAtIsNull(7L, 1L)).thenReturn(Optional.of(child));
@@ -152,8 +198,7 @@ class HomeServiceTest {
         ReflectionTestUtils.setField(feedback, "id", 91L);
         ReflectionTestUtils.setField(feedback, "createdAt", OffsetDateTime.now());
 
-        when(childRepository.existsByParentIdAndOnboardingCompletedAtIsNotNullAndDeletedAtIsNull(1L))
-                .thenReturn(true);
+        when(childRepository.findByParentIdAndDeletedAtIsNullOrderByIdAsc(1L)).thenReturn(List.of(child));
         when(dailyPlanItemRepository.findLatestSelectedByParentId(any(Long.class), any(Pageable.class)))
                 .thenReturn(List.of(item));
         when(childRepository.findByIdAndParentIdAndDeletedAtIsNull(7L, 1L)).thenReturn(Optional.of(child));
@@ -177,8 +222,6 @@ class HomeServiceTest {
     @Test
     void noSelectedActivityLeadsToPlanGeneration() {
         Child child = child(7L, 1L, "Ada");
-        when(childRepository.existsByParentIdAndOnboardingCompletedAtIsNotNullAndDeletedAtIsNull(1L))
-                .thenReturn(true);
         when(childRepository.findByParentIdAndDeletedAtIsNullOrderByIdAsc(1L))
                 .thenReturn(List.of(child));
         when(childService.displayName(any(Child.class), any(Integer.class))).thenReturn("Ada");

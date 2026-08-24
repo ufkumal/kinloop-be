@@ -7,6 +7,8 @@ import com.kinloop.backend.repository.ParentProfileRepository;
 import com.kinloop.backend.dto.child.CreateChildRequest;
 import com.kinloop.backend.dto.child.CreateChildResponse;
 import com.kinloop.backend.dto.child.SessionSummaryResponse;
+import com.kinloop.backend.dto.child.UpdateChildRequest;
+import com.kinloop.backend.dto.child.UpdateChildResponse;
 import com.kinloop.backend.exception.UnsupportedChildAgeException;
 import com.kinloop.backend.exception.ChildNotFoundException;
 import com.kinloop.backend.entity.QuestionnaireSession;
@@ -68,6 +70,34 @@ public class ChildService {
     public Child getOwnedChild(Long childId, Long parentProfileId) {
         return childRepository.findByIdAndParentIdAndDeletedAtIsNull(childId, parentProfileId)
                 .orElseThrow(() -> new ChildNotFoundException(childId));
+    }
+
+    @Transactional
+    public UpdateChildResponse updateChild(Long childId, Long parentProfileId, UpdateChildRequest request) {
+        Child child = getOwnedChild(childId, parentProfileId);
+        int newAgeMonths = AgeBand.ageInMonths(request.birthDate(), LocalDate.now());
+        if (!AgeBand.isSupported(newAgeMonths)) {
+            throw new UnsupportedChildAgeException(newAgeMonths);
+        }
+
+        AgeBand previousBand = AgeBand.resolve(child.ageInMonths(LocalDate.now()));
+        AgeBand newBand = AgeBand.resolve(newAgeMonths);
+        child.setFullName(trimToNull(request.fullName()));
+        child.setBirthDate(request.birthDate());
+        child.setGender(request.gender());
+
+        boolean questionnaireRestarted = previousBand != newBand;
+        if (questionnaireRestarted) {
+            child.setOnboardingCompletedAt(null);
+        }
+        childRepository.saveAndFlush(child);
+        if (questionnaireRestarted) {
+            questionnaireSessionService.current(child);
+        }
+
+        return new UpdateChildResponse(
+                child.getId(), child.getFullName(), displayName(child, newAgeMonths), child.getBirthDate(),
+                newAgeMonths, newBand, child.getGender(), questionnaireRestarted);
     }
 
     /**

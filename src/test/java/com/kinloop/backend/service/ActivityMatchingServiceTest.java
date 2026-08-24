@@ -2,6 +2,7 @@ package com.kinloop.backend.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,6 +20,9 @@ import com.kinloop.backend.repository.DailyPlanRepository;
 import com.kinloop.backend.repository.DevelopmentalPeriodTaskRepository;
 import com.kinloop.backend.repository.DunnProfileRepository;
 import com.kinloop.backend.repository.RecommendationRepository;
+import com.kinloop.backend.repository.ParentProfileRepository;
+import com.kinloop.backend.entity.ParentProfile;
+import com.kinloop.backend.exception.RequiredConsentMissingException;
 import com.kinloop.backend.service.matching.ActivityEligibilityPolicy;
 import com.kinloop.backend.service.matching.ActivityFreshnessPolicy;
 import com.kinloop.backend.service.matching.ActivityScorer;
@@ -55,6 +59,8 @@ class ActivityMatchingServiceTest {
     @Mock private CandidateOrdering candidateOrdering;
     @Mock private DailyPortfolioBuilder portfolioBuilder;
     @Mock private OnboardingService onboardingService;
+    @Mock private ParentProfileRepository parentProfileRepository;
+    @Mock private ConsentService consentService;
     @InjectMocks private ActivityMatchingService service;
 
     @Test
@@ -94,5 +100,24 @@ class ActivityMatchingServiceTest {
         assertEquals("EMPTY_POOL", response.state());
         assertNotNull(response.message());
         assertEquals(0, response.activities().size());
+    }
+
+    @Test
+    void refusesToGenerateANewPlanWithoutRequiredConsents() {
+        Child child = new Child();
+        child.setId(9L);
+        child.setParentId(4L);
+        ParentProfile parent = new ParentProfile();
+        parent.setId(4L);
+        parent.setUserId(12L);
+        when(childRepository.findLockedById(9L)).thenReturn(Optional.of(child));
+        when(planRepository.findByChildIdAndPlanDate(9L, LocalDate.now())).thenReturn(Optional.empty());
+        when(parentProfileRepository.findById(4L)).thenReturn(Optional.of(parent));
+        org.mockito.Mockito.doThrow(new RequiredConsentMissingException())
+                .when(consentService).requireAllRequiredConsents(12L);
+
+        assertThrows(RequiredConsentMissingException.class, () -> service.today(child));
+        verify(profileRepository, never()).findByChildIdAndCurrentTrue(9L);
+        verify(planRepository, never()).save(org.mockito.ArgumentMatchers.any());
     }
 }

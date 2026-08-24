@@ -61,6 +61,7 @@ class OnboardingServiceTest {
         assertEquals((short) 35, response.maxMinutes());
         assertEquals((short) 25, child.getDailyTimeBudgetMin());
         assertEquals((short) 35, child.getDailyTimeBudgetMax());
+        org.junit.jupiter.api.Assertions.assertNotNull(child.getDailyTimeBudgetAnsweredAt());
         verify(childRepository).save(child);
     }
 
@@ -70,6 +71,7 @@ class OnboardingServiceTest {
         Child child = child(18);
         child.setDailyTimeBudgetMin((short) 15);
         child.setDailyTimeBudgetMax((short) 25);
+        child.setDailyTimeBudgetAnsweredAt(java.time.OffsetDateTime.now());
         when(questionRepository.findByCodeAndScopeAndActiveTrue("Q7", QuestionScope.CHILD_BUDGET))
                 .thenReturn(Optional.of(question));
 
