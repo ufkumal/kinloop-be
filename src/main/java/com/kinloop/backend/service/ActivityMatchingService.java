@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
@@ -129,12 +130,25 @@ public class ActivityMatchingService {
         plan.prepareSelection(activityId);
         planRepository.saveAndFlush(plan);
         plan.select(activityId);
-        return response(planRepository.save(plan), child);
+        return response(
+                planRepository.save(plan),
+                child,
+                item -> activityId.equals(item.getActivity().getId())
+        );
     }
 
     private DailyPlanResponse response(DailyPlan plan, Child child) {
+        return response(plan, child, item -> true);
+    }
+
+    private DailyPlanResponse response(
+            DailyPlan plan,
+            Child child,
+            Predicate<DailyPlanItem> itemFilter
+    ) {
         List<DailyActivityResponse> items = plan.getItems().stream()
                 .distinct()
+                .filter(itemFilter)
                 .sorted(Comparator.comparingInt(x -> x.getSlotType().ordinal()))
                 .map(this::response)
                 .toList();
