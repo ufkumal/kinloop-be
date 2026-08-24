@@ -45,17 +45,50 @@ components:
       properties:
         state:
           type: string
-          enum: [new-user, feedback-required, returning-user]
+          enum: [new-user, half-onboarding-user, feedback-required, returning-user]
         childId:
           type: integer
           format: int64
         childName:
           type: string
+        child:
+          $ref: '#/components/schemas/HomeChildResponse'
+        onboardingStep:
+          type: string
+          enum: [DAILY_TIME_BUDGET, QUESTIONNAIRE, CONSENTS]
+        nextQuestionCode:
+          type: string
+          description: First unanswered required questionnaire question when onboardingStep is QUESTIONNAIRE.
+        nextConsentId:
+          type: integer
+          format: int64
+          description: First active required consent not yet granted when onboardingStep is CONSENTS.
         latestActivity:
           $ref: '#/components/schemas/HomeActivityResponse'
         shouldGenerateDailyPlan:
           type: boolean
           description: When true, the client should offer navigation to the daily-plan /today flow.
+
+    HomeChildResponse:
+      type: object
+      required: [childId, displayName, birthDate, ageMonths, ageBand]
+      properties:
+        childId:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        displayName:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        ageMonths:
+          type: integer
+        ageBand:
+          $ref: '#/components/schemas/AgeBand'
+        gender:
+          $ref: '#/components/schemas/Gender'
 
     HomeActivityResponse:
       type: object
@@ -179,6 +212,34 @@ components:
           $ref: '#/components/schemas/Gender'
       required: [birthDate]
 
+    UpdateChildRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateChildRequest'
+
+    UpdateChildResponse:
+      type: object
+      required: [childId, displayName, birthDate, ageMonths, ageBand, questionnaireRestarted]
+      properties:
+        childId:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        displayName:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        ageMonths:
+          type: integer
+        ageBand:
+          $ref: '#/components/schemas/AgeBand'
+        gender:
+          $ref: '#/components/schemas/Gender'
+        questionnaireRestarted:
+          type: boolean
+          description: True when a corrected birth date changes the age band and a new questionnaire is required.
+
     DailyTimeBudgetOptionResponse:
       type: object
       required: [code, label, displayOrder, minMinutes, maxMinutes]
@@ -197,7 +258,7 @@ components:
 
     DailyTimeBudgetProfileResponse:
       type: object
-      required: [questionCode, question, selectedOptionCode, minMinutes, maxMinutes, options]
+      required: [questionCode, question, minMinutes, maxMinutes, options]
       properties:
         questionCode:
           type: string
@@ -206,6 +267,7 @@ components:
         selectedOptionCode:
           type: string
           enum: [A, B, C]
+          description: Null until the parent explicitly submits this step; stored defaults are not progress.
         minMinutes:
           type: integer
         maxMinutes:
@@ -667,6 +729,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateChildResponse'
 
+  /api/children/{childId}:
+    put:
+      summary: Update an owned child's identity details from onboarding or profile
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChildId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateChildRequest'
+      responses:
+        '200':
+          description: Child updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateChildResponse'
+        '404':
+          description: Child does not belong to the authenticated parent
+
   /api/onboarding/identity-questions:
     get:
       summary: Get identity/onboarding questions
@@ -764,6 +849,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DailyPlanResponse'
+        '403':
+          description: One or more active required consents have not been granted
   /api/children/{childId}/questionnaire/current:
     get:
       summary: Get current questionnaire for a child

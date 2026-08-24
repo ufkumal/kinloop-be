@@ -43,6 +43,8 @@ public class ActivityMatchingService {
     private final CandidateOrdering candidateOrdering;
     private final DailyPortfolioBuilder portfolioBuilder;
     private final OnboardingService onboardingService;
+    private final ParentProfileRepository parentProfileRepository;
+    private final ConsentService consentService;
 
     @Transactional
     public DailyPlanResponse today(Child requestedChild) {
@@ -50,6 +52,12 @@ public class ActivityMatchingService {
         LocalDate today = LocalDate.now();
         Optional<DailyPlan> existing = planRepository.findByChildIdAndPlanDate(child.getId(), today);
         if (existing.isPresent()) return response(existing.get(), child);
+
+        Long userId = parentProfileRepository.findById(child.getParentId())
+                .filter(parent -> parent.getDeletedAt() == null)
+                .orElseThrow(() -> new IllegalStateException("Parent profile not found"))
+                .getUserId();
+        consentService.requireAllRequiredConsents(userId);
 
         ChildProfileSnapshot profile = profileRepository.findByChildIdAndCurrentTrue(child.getId())
                 .orElseThrow(() -> new IllegalStateException("Child onboarding profile is missing"));

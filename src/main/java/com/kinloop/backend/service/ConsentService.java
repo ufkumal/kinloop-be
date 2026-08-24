@@ -4,11 +4,13 @@ import com.kinloop.backend.dto.consent.ConsentResponse;
 import com.kinloop.backend.entity.ConsentDocument;
 import com.kinloop.backend.entity.User;
 import com.kinloop.backend.entity.UserConsent;
+import com.kinloop.backend.exception.RequiredConsentMissingException;
 import com.kinloop.backend.repository.ConsentDocumentRepository;
 import com.kinloop.backend.repository.UserConsentRepository;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +50,37 @@ public class ConsentService {
         decision.setRevokedAt(granted ? null : now);
         decision.setUpdatedAt(now);
         return toResponse(document, userConsentRepository.save(decision));
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasGrantedAllRequiredConsents(Long userId) {
+        return firstMissingRequiredConsentId(userId).isEmpty();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Long> firstMissingRequiredConsentId(Long userId) {
+        List<ConsentDocument> requiredDocuments = consentDocumentRepository
+                .findByActiveTrueOrderByDisplayOrderAsc().stream()
+                .filter(ConsentDocument::isRequired)
+                .toList();
+        if (requiredDocuments.isEmpty()) {
+            return Optional.empty();
+        }
+        List<Long> requiredIds = requiredDocuments.stream().map(ConsentDocument::getId).toList();
+        Map<Long, UserConsent> decisions = userConsentRepository
+                .findByUserIdAndConsentDocumentIdIn(userId, requiredIds).stream()
+                .collect(Collectors.toMap(c -> c.getConsentDocument().getId(), Function.identity()));
+        return requiredIds.stream().filter(id -> {
+            UserConsent decision = decisions.get(id);
+            return decision == null || !decision.isGranted() || decision.getRevokedAt() != null;
+        }).findFirst();
+    }
+
+    @Transactional(readOnly = true)
+    public void requireAllRequiredConsents(Long userId) {
+        if (!hasGrantedAllRequiredConsents(userId)) {
+            throw new RequiredConsentMissingException();
+        }
     }
 
     private ConsentResponse toResponse(ConsentDocument document, UserConsent decision) {

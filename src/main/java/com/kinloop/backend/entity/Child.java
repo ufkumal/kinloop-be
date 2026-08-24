@@ -56,6 +56,9 @@ public class Child {
     @Column(name = "daily_time_budget_max", nullable = false)
     private short dailyTimeBudgetMax = 35;
 
+    @Column(name = "daily_time_budget_answered_at")
+    private OffsetDateTime dailyTimeBudgetAnsweredAt;
+
     @Column(name = "onboarding_completed_at")
     private OffsetDateTime onboardingCompletedAt;
 
