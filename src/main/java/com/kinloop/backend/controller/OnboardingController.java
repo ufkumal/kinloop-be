@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/onboarding")
 @RequiredArgsConstructor
 public class OnboardingController {
 
@@ -28,20 +28,20 @@ public class OnboardingController {
     private final CurrentParentProfileService currentParentProfileService;
     private final ChildService childService;
 
-    @GetMapping("/onboarding/identity-questions")
+    @GetMapping("/identity-questions")
     public IdentityQuestionsResponse identityQuestions(Authentication authentication) {
         currentParentProfileService.currentParentProfileId(authentication);
         return onboardingService.getIdentityQuestions();
     }
 
-    @GetMapping("/children/{childId}/onboarding/daily-time-budget")
+    @GetMapping("/children/{childId}/daily-time-budget")
     public com.kinloop.backend.dto.profile.DailyTimeBudgetProfileResponse dailyTimeBudget(
             @PathVariable Long childId,
             Authentication authentication) {
         return onboardingService.getDailyTimeBudget(ownedChild(childId, authentication));
     }
 
-    @PutMapping("/children/{childId}/onboarding/daily-time-budget")
+    @PutMapping("/children/{childId}/daily-time-budget")
     public DailyTimeBudgetResponse updateDailyTimeBudget(
             @PathVariable Long childId,
             Authentication authentication,
@@ -50,14 +50,14 @@ public class OnboardingController {
                 ownedChild(childId, authentication), request.optionCode());
     }
 
-    @GetMapping("/children/{childId}/onboarding/closing-message")
+    @GetMapping("/children/{childId}/closing-message")
     public OnboardingClosingMessageResponse closingMessage(
             @PathVariable Long childId,
             Authentication authentication) {
         return onboardingService.getClosingMessage(ownedChild(childId, authentication));
     }
 
-    @PutMapping("/children/{childId}/onboarding/closing-message")
+    @PutMapping("/children/{childId}/closing-message")
     public OnboardingClosingMessageResponse updateClosingMessage(
             @PathVariable Long childId,
             Authentication authentication,
