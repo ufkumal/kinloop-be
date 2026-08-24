@@ -46,13 +46,20 @@ public class QuestionnaireSessionService {
         if (existing.isPresent() && existing.get().getAgeBand() == band) session = existing.get();
         else {
             existing.ifPresent(this::abandonBandSpecificSession);
-            TriggerReason reason = sessionRepository.existsByChildIdAndStatus(child.getId(), SessionStatus.COMPLETED)
-                    ? TriggerReason.AGE_BAND : TriggerReason.INITIAL;
-            try {
-                QuestionnaireSession fresh = QuestionnaireSession.open(child.getId(), ageMonths, reason);
-                session = existing.isPresent() ? sessionRepository.saveAndFlush(fresh) : sessionWriter.insert(fresh);
-            } catch (DataIntegrityViolationException race) {
-                session = sessionRepository.findByChildIdAndStatus(child.getId(), SessionStatus.IN_PROGRESS).orElseThrow(() -> race);
+            Optional<QuestionnaireSession> completedForBand = sessionRepository
+                    .findFirstByChildIdAndStatusAndAgeBandOrderByCompletedAtDesc(
+                            child.getId(), SessionStatus.COMPLETED, band);
+            if (completedForBand.isPresent()) session = completedForBand.get();
+            else {
+                TriggerReason reason = sessionRepository.existsByChildIdAndStatus(child.getId(), SessionStatus.COMPLETED)
+                        ? TriggerReason.AGE_BAND : TriggerReason.INITIAL;
+                try {
+                    QuestionnaireSession fresh = QuestionnaireSession.open(child.getId(), ageMonths, reason);
+                    session = existing.isPresent() ? sessionRepository.saveAndFlush(fresh) : sessionWriter.insert(fresh);
+                } catch (DataIntegrityViolationException race) {
+                    session = sessionRepository.findByChildIdAndStatus(child.getId(), SessionStatus.IN_PROGRESS)
+                            .orElseThrow(() -> race);
+                }
             }
         }
         return response(session);
