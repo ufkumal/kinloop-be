@@ -8,8 +8,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.kinloop.backend.dto.matching.DailyPlanResponse;
+import com.kinloop.backend.entity.Activity;
 import com.kinloop.backend.entity.Child;
 import com.kinloop.backend.entity.DailyPlan;
+import com.kinloop.backend.entity.DailyPlanItem;
+import com.kinloop.backend.entity.enums.PlanSlotType;
 import com.kinloop.backend.repository.ActivityRepository;
 import com.kinloop.backend.repository.ChildDomainLevelRepository;
 import com.kinloop.backend.repository.ChildIntelligenceScoreRepository;
@@ -30,6 +33,7 @@ import com.kinloop.backend.service.matching.CandidateOrdering;
 import com.kinloop.backend.service.matching.DailyPortfolioBuilder;
 import com.kinloop.backend.service.matching.MatchingParameters;
 import com.kinloop.backend.service.matching.MatchingStateInitializer;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -84,6 +88,26 @@ class ActivityMatchingServiceTest {
         verify(activityRepository, never()).findEligibleBasePool(org.mockito.ArgumentMatchers.anyInt(),
                 org.mockito.ArgumentMatchers.anyShort());
         verify(parameters, never()).load();
+    }
+
+    @Test
+    void storedPlanResponseDoesNotRepeatAnItemDuplicatedByOrmHydration() {
+        Child child = new Child();
+        child.setId(9L);
+        Activity activity = new Activity();
+        ReflectionTestUtils.setField(activity, "id", 15L);
+        DailyPlan stored = new DailyPlan(9L, LocalDate.now());
+        stored.add(activity, PlanSlotType.DEVELOP, BigDecimal.TEN);
+        DailyPlanItem item = stored.getItems().getFirst();
+        ReflectionTestUtils.setField(item, "id", 42L);
+        stored.getItems().add(item);
+        when(childRepository.findLockedById(9L)).thenReturn(Optional.of(child));
+        when(planRepository.findByChildIdAndPlanDate(9L, LocalDate.now())).thenReturn(Optional.of(stored));
+
+        DailyPlanResponse response = service.today(child);
+
+        assertEquals(1, response.activities().size());
+        assertEquals(42L, response.activities().getFirst().dailyPlanItemId());
     }
 
     @Test

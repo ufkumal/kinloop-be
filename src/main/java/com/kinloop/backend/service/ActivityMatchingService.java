@@ -133,7 +133,11 @@ public class ActivityMatchingService {
     }
 
     private DailyPlanResponse response(DailyPlan plan, Child child) {
-        List<DailyActivityResponse> items = plan.getItems().stream().sorted(Comparator.comparingInt(x -> x.getSlotType().ordinal())).map(this::response).toList();
+        List<DailyActivityResponse> items = plan.getItems().stream()
+                .distinct()
+                .sorted(Comparator.comparingInt(x -> x.getSlotType().ordinal()))
+                .map(this::response)
+                .toList();
         return new DailyPlanResponse(
                 plan.getId(),
                 plan.getChildId(),
