@@ -639,6 +639,11 @@ class PostgreSqlMigrationIntegrationTest {
                 () -> assertNotNull(constraint("daily_plans", "chk_daily_plans_fallback_level")));
     }
 
+    @Test
+    void allowsMultiplePlanRoundsForAChildOnTheSameDate() throws SQLException {
+        assertNull(constraint("daily_plans", "uq_daily_plans_child_date"));
+    }
+
     private static Map<String, BigDecimal> expectedV6Parameters() {
         Map<String, BigDecimal> values = new LinkedHashMap<>();
         values.put("tiebreak_seed_a", decimal("1000003"));

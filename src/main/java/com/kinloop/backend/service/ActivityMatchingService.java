@@ -51,8 +51,11 @@ public class ActivityMatchingService {
     public DailyPlanResponse today(Child requestedChild) {
         Child child = childRepository.findLockedById(requestedChild.getId()).orElseThrow();
         LocalDate today = LocalDate.now();
-        Optional<DailyPlan> existing = planRepository.findByChildIdAndPlanDate(child.getId(), today);
-        if (existing.isPresent()) return response(existing.get(), child);
+        Optional<DailyPlan> currentRound = planRepository
+                .findFirstByChildIdAndPlanDateOrderByIdDesc(child.getId(), today);
+        if (currentRound.isPresent() && !currentRound.get().isRoundCompleted()) {
+            return response(currentRound.get(), child);
+        }
 
         Long userId = parentProfileRepository.findById(child.getParentId())
                 .filter(parent -> parent.getDeletedAt() == null)
@@ -125,7 +128,8 @@ public class ActivityMatchingService {
 
     @Transactional
     public DailyPlanResponse selectActivity(Child child, Long activityId) {
-        DailyPlan plan = planRepository.findByChildIdAndPlanDate(child.getId(), LocalDate.now())
+        DailyPlan plan = planRepository
+                .findFirstByChildIdAndPlanDateOrderByIdDesc(child.getId(), LocalDate.now())
                 .orElseThrow(() -> new DailyPlanNotFoundException(child.getId()));
         plan.prepareSelection(activityId);
         planRepository.saveAndFlush(plan);

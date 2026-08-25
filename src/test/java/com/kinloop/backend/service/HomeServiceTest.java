@@ -188,6 +188,7 @@ class HomeServiceTest {
         ReflectionTestUtils.setField(instruction, "purpose", "Practice movement");
         ReflectionTestUtils.setField(activity, "instruction", instruction);
         DailyPlan plan = new DailyPlan(child.getId(), LocalDate.now());
+        ReflectionTestUtils.setField(plan, "id", 31L);
         plan.add(activity, PlanSlotType.EXPLORE, BigDecimal.ONE);
         plan.select(activity.getId());
         DailyPlanItem item = plan.getItems().getFirst();
@@ -204,6 +205,8 @@ class HomeServiceTest {
         when(childRepository.findByIdAndParentIdAndDeletedAtIsNull(7L, 1L)).thenReturn(Optional.of(child));
         when(feedbackRepository.findByChildIdAndDailyPlanItemId(7L, 41L))
                 .thenReturn(Optional.of(feedback));
+        when(dailyPlanItemRepository.existsByDailyPlanIdAndCompletedAtIsNull(31L))
+                .thenReturn(false);
         when(childService.displayName(any(Child.class), any(Integer.class))).thenReturn("Ada");
 
         HomeStatusResponse response = service.getStatus(1L);
@@ -217,6 +220,32 @@ class HomeServiceTest {
         assertEquals(FeedbackReason.INTEREST, response.latestActivity().feedback().resolvedReason());
         assertEquals("She loved it", response.latestActivity().feedback().freeText());
         assertTrue(response.shouldGenerateDailyPlan());
+    }
+
+    @Test
+    void completedActivityDoesNotRequestANewRoundWhileCurrentRoundHasPendingItems() {
+        Child child = child(7L, 1L, "Ada");
+        Activity activity = new Activity();
+        ReflectionTestUtils.setField(activity, "id", 23L);
+        DailyPlan plan = new DailyPlan(child.getId(), LocalDate.now());
+        ReflectionTestUtils.setField(plan, "id", 31L);
+        plan.add(activity, PlanSlotType.EXPLORE, BigDecimal.ONE);
+        plan.select(activity.getId());
+        DailyPlanItem item = plan.getItems().getFirst();
+        ReflectionTestUtils.setField(item, "id", 41L);
+        item.complete();
+
+        when(childRepository.findByParentIdAndDeletedAtIsNullOrderByIdAsc(1L)).thenReturn(List.of(child));
+        when(dailyPlanItemRepository.findLatestSelectedByParentId(any(Long.class), any(Pageable.class)))
+                .thenReturn(List.of(item));
+        when(childRepository.findByIdAndParentIdAndDeletedAtIsNull(7L, 1L)).thenReturn(Optional.of(child));
+        when(feedbackRepository.findByChildIdAndDailyPlanItemId(7L, 41L)).thenReturn(Optional.empty());
+        when(dailyPlanItemRepository.existsByDailyPlanIdAndCompletedAtIsNull(31L)).thenReturn(true);
+        when(childService.displayName(any(Child.class), any(Integer.class))).thenReturn("Ada");
+
+        HomeStatusResponse response = service.getStatus(1L);
+
+        assertFalse(response.shouldGenerateDailyPlan());
     }
 
     @Test
