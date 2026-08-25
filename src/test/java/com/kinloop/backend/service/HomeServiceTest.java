@@ -26,6 +26,7 @@ import com.kinloop.backend.entity.enums.SessionStatus;
 import com.kinloop.backend.entity.enums.TriggerReason;
 import com.kinloop.backend.repository.ChildRepository;
 import com.kinloop.backend.repository.DailyPlanItemRepository;
+import com.kinloop.backend.repository.DailyPlanRepository;
 import com.kinloop.backend.repository.FeedbackRepository;
 import com.kinloop.backend.repository.ParentProfileRepository;
 import com.kinloop.backend.entity.ParentProfile;
@@ -47,6 +48,7 @@ class HomeServiceTest {
 
     @Mock private ChildRepository childRepository;
     @Mock private DailyPlanItemRepository dailyPlanItemRepository;
+    @Mock private DailyPlanRepository dailyPlanRepository;
     @Mock private FeedbackRepository feedbackRepository;
     @Mock private ChildService childService;
     @Mock private ParentProfileRepository parentProfileRepository;
@@ -58,7 +60,8 @@ class HomeServiceTest {
     @BeforeEach
     void setUp() {
         service = new HomeService(
-                childRepository, dailyPlanItemRepository, feedbackRepository, childService,
+                childRepository, dailyPlanItemRepository, dailyPlanRepository,
+                feedbackRepository, childService,
                 parentProfileRepository, consentService, questionnaireSessionService);
         ParentProfile parent = new ParentProfile();
         parent.setId(1L);
@@ -173,6 +176,7 @@ class HomeServiceTest {
         assertEquals("Animal Walk", response.latestActivity().title());
         assertNotNull(response.latestActivity().selectedAt());
         assertFalse(response.shouldGenerateDailyPlan());
+        assertFalse(response.shouldListExistingPlan());
     }
 
     @Test
@@ -188,6 +192,7 @@ class HomeServiceTest {
         ReflectionTestUtils.setField(instruction, "purpose", "Practice movement");
         ReflectionTestUtils.setField(activity, "instruction", instruction);
         DailyPlan plan = new DailyPlan(child.getId(), LocalDate.now());
+        ReflectionTestUtils.setField(plan, "id", 31L);
         plan.add(activity, PlanSlotType.EXPLORE, BigDecimal.ONE);
         plan.select(activity.getId());
         DailyPlanItem item = plan.getItems().getFirst();
@@ -204,6 +209,8 @@ class HomeServiceTest {
         when(childRepository.findByIdAndParentIdAndDeletedAtIsNull(7L, 1L)).thenReturn(Optional.of(child));
         when(feedbackRepository.findByChildIdAndDailyPlanItemId(7L, 41L))
                 .thenReturn(Optional.of(feedback));
+        when(dailyPlanRepository.findFirstByChildIdAndPlanDateOrderByIdDesc(7L, LocalDate.now()))
+                .thenReturn(Optional.of(plan));
         when(childService.displayName(any(Child.class), any(Integer.class))).thenReturn("Ada");
 
         HomeStatusResponse response = service.getStatus(1L);
@@ -217,6 +224,38 @@ class HomeServiceTest {
         assertEquals(FeedbackReason.INTEREST, response.latestActivity().feedback().resolvedReason());
         assertEquals("She loved it", response.latestActivity().feedback().freeText());
         assertTrue(response.shouldGenerateDailyPlan());
+        assertFalse(response.shouldListExistingPlan());
+    }
+
+    @Test
+    void completedActivityDoesNotRequestANewRoundWhileCurrentRoundHasPendingItems() {
+        Child child = child(7L, 1L, "Ada");
+        Activity activity = new Activity();
+        ReflectionTestUtils.setField(activity, "id", 23L);
+        DailyPlan plan = new DailyPlan(child.getId(), LocalDate.now());
+        ReflectionTestUtils.setField(plan, "id", 31L);
+        plan.add(activity, PlanSlotType.EXPLORE, BigDecimal.ONE);
+        Activity pendingActivity = new Activity();
+        ReflectionTestUtils.setField(pendingActivity, "id", 24L);
+        plan.add(pendingActivity, PlanSlotType.DEVELOP, BigDecimal.TEN);
+        plan.select(activity.getId());
+        DailyPlanItem item = plan.getItems().getFirst();
+        ReflectionTestUtils.setField(item, "id", 41L);
+        item.complete();
+
+        when(childRepository.findByParentIdAndDeletedAtIsNullOrderByIdAsc(1L)).thenReturn(List.of(child));
+        when(dailyPlanItemRepository.findLatestSelectedByParentId(any(Long.class), any(Pageable.class)))
+                .thenReturn(List.of(item));
+        when(childRepository.findByIdAndParentIdAndDeletedAtIsNull(7L, 1L)).thenReturn(Optional.of(child));
+        when(feedbackRepository.findByChildIdAndDailyPlanItemId(7L, 41L)).thenReturn(Optional.empty());
+        when(dailyPlanRepository.findFirstByChildIdAndPlanDateOrderByIdDesc(7L, LocalDate.now()))
+                .thenReturn(Optional.of(plan));
+        when(childService.displayName(any(Child.class), any(Integer.class))).thenReturn("Ada");
+
+        HomeStatusResponse response = service.getStatus(1L);
+
+        assertFalse(response.shouldGenerateDailyPlan());
+        assertTrue(response.shouldListExistingPlan());
     }
 
     @Test
@@ -231,6 +270,26 @@ class HomeServiceTest {
         assertEquals("returning-user", response.state());
         assertNull(response.latestActivity());
         assertTrue(response.shouldGenerateDailyPlan());
+        assertFalse(response.shouldListExistingPlan());
+    }
+
+    @Test
+    void unselectedExistingRoundIsListedInsteadOfRegenerated() {
+        Child child = child(7L, 1L, "Ada");
+        DailyPlan plan = new DailyPlan(child.getId(), LocalDate.now());
+        Activity activity = new Activity();
+        ReflectionTestUtils.setField(activity, "id", 23L);
+        plan.add(activity, PlanSlotType.EXPLORE, BigDecimal.ONE);
+        when(childRepository.findByParentIdAndDeletedAtIsNullOrderByIdAsc(1L))
+                .thenReturn(List.of(child));
+        when(dailyPlanRepository.findFirstByChildIdAndPlanDateOrderByIdDesc(7L, LocalDate.now()))
+                .thenReturn(Optional.of(plan));
+        when(childService.displayName(any(Child.class), any(Integer.class))).thenReturn("Ada");
+
+        HomeStatusResponse response = service.getStatus(1L);
+
+        assertFalse(response.shouldGenerateDailyPlan());
+        assertTrue(response.shouldListExistingPlan());
     }
 
     private Child child(Long id, Long parentId, String fullName) {
