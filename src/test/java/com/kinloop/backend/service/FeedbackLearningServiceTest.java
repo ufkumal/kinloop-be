@@ -33,8 +33,12 @@ import com.kinloop.backend.repository.ChildIntelligenceScoreRepository;
 import com.kinloop.backend.repository.ChildProfileSnapshotRepository;
 import com.kinloop.backend.repository.DailyPlanItemRepository;
 import com.kinloop.backend.repository.DunnProfileRepository;
+import com.kinloop.backend.repository.ChildSensoryAdjustmentRepository;
 import com.kinloop.backend.repository.FeedbackEffectRepository;
+import com.kinloop.backend.repository.FeedbackLlmClassificationRepository;
 import com.kinloop.backend.repository.FeedbackRepository;
+import com.kinloop.backend.service.llm.FeedbackClassificationOutcome;
+import com.kinloop.backend.service.llm.ParsedClassification;
 import com.kinloop.backend.service.matching.MatchingParameters;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -61,6 +65,8 @@ class FeedbackLearningServiceTest {
     @Mock private ChildIntelligenceScoreRepository intelligenceRepository;
     @Mock private ChildDomainLevelRepository domainRepository;
     @Mock private MatchingParameters matchingParameters;
+    @Mock private ChildSensoryAdjustmentRepository sensoryAdjustmentRepository;
+    @Mock private FeedbackLlmClassificationRepository classificationRepository;
     @InjectMocks private FeedbackLearningService service;
 
     private final Child child = new Child();
@@ -90,10 +96,15 @@ class FeedbackLearningServiceTest {
 
         when(dailyPlanItemRepository.findByIdAndDailyPlanChildId(11L, 7L)).thenReturn(Optional.of(item));
         when(feedbackRepository.existsByDailyPlanItemId(11L)).thenReturn(false);
-        when(feedbackRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(feedbackRepository.save(any())).thenAnswer(invocation -> {
+            Feedback feedback = invocation.getArgument(0);
+            ReflectionTestUtils.setField(feedback, "id", 91L);
+            return feedback;
+        });
         when(matchingParameters.load()).thenReturn(parameters());
         when(profileRepository.findByChildIdAndCurrentTrue(7L)).thenReturn(Optional.of(profile));
-        when(intelligenceRepository.findByChildId(7L)).thenReturn(List.of(target, secondary));
+        org.mockito.Mockito.lenient().when(intelligenceRepository.findByChildId(7L))
+                .thenReturn(List.of(target, secondary));
         when(domainRepository.findByChildId(7L)).thenReturn(List.of(domainLevel));
     }
 
@@ -190,6 +201,44 @@ class FeedbackLearningServiceTest {
         assertEquals(firstReversalTime, effects.getFirst().getReversedAt());
     }
 
+    @Test
+    void transientClassificationStoresVoteWithoutUpdatingAnyLearningState() {
+        ParsedClassification parsed = new ParsedClassification(
+                true, new BigDecimal("0.85"), null, null, null, null, null,
+                com.kinloop.backend.entity.enums.SituationHint.TRANSIENT, null, false);
+
+        service.submit(
+                child,
+                11L,
+                new SubmitActivityFeedbackRequest(FeedbackType.LIKED, "Uykusuzdu"),
+                FeedbackClassificationOutcome.completed("claude-haiku-4-5", "{}", parsed));
+
+        assertEquals(0, new BigDecimal("3.00").compareTo(target.getScore()));
+        assertEquals(0, new BigDecimal("3.00").compareTo(secondary.getScore()));
+        assertEquals(0, target.getFeedbackCount());
+        assertEquals(0, BigDecimal.ZERO.compareTo(domainLevel.getStreak()));
+        verify(feedbackEffectRepository, never()).save(any());
+        verify(classificationRepository).save(any());
+    }
+
+    @Test
+    void targetCorrectionMatchingActivitySecondaryHonorsPerAreaDeltaCap() {
+        ParsedClassification parsed = new ParsedClassification(
+                true, new BigDecimal("0.85"), IntelligenceType.MUSICAL, null,
+                null, null, null, null, null, false);
+
+        service.submit(
+                child,
+                11L,
+                new SubmitActivityFeedbackRequest(FeedbackType.LIKED, "Şarkıyı sevdi"),
+                FeedbackClassificationOutcome.completed("claude-haiku-4-5", "{}", parsed));
+
+        assertEquals(0, new BigDecimal("3.00").compareTo(target.getScore()));
+        assertEquals(0, new BigDecimal("3.30").compareTo(secondary.getScore()));
+        assertEquals(1, secondary.getFeedbackCount());
+        verify(feedbackEffectRepository, org.mockito.Mockito.times(1)).save(any());
+    }
+
     private Activity activity(int difficulty, InvolvementType involvementType) {
         Activity activity = new Activity();
         ReflectionTestUtils.setField(activity, "id", 5L);
@@ -222,6 +271,7 @@ class FeedbackLearningServiceTest {
         values.put("level_max", new BigDecimal("4"));
         values.put("ceiling_counter_cap", new BigDecimal("1.0"));
         values.put("attachment_anxiety_threshold", new BigDecimal("4"));
+        values.put("llm_feedback_confidence_threshold", new BigDecimal("0.70"));
         return values;
     }
 }

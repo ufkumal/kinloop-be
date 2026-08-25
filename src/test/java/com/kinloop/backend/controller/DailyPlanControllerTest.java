@@ -26,7 +26,7 @@ import com.kinloop.backend.security.JwtService;
 import com.kinloop.backend.service.ActivityMatchingService;
 import com.kinloop.backend.service.ChildService;
 import com.kinloop.backend.service.CurrentParentProfileService;
-import com.kinloop.backend.service.FeedbackLearningService;
+import com.kinloop.backend.service.SynchronousFeedbackSubmissionService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -45,7 +45,7 @@ class DailyPlanControllerTest {
     @MockBean private CurrentParentProfileService currentParentProfileService;
     @MockBean private ChildService childService;
     @MockBean private ActivityMatchingService matchingService;
-    @MockBean private FeedbackLearningService feedbackLearningService;
+    @MockBean private SynchronousFeedbackSubmissionService feedbackSubmissionService;
     @MockBean private JwtService jwtService;
     @MockBean private UserDetailsService userDetailsService;
     @MockBean private CustomAuthenticationEntryPoint authenticationEntryPoint;
@@ -100,7 +100,7 @@ class DailyPlanControllerTest {
         child.setId(9L);
         when(currentParentProfileService.currentParentProfileId(any())).thenReturn(5L);
         when(childService.getOwnedChild(9L, 5L)).thenReturn(child);
-        when(feedbackLearningService.submit(any(), org.mockito.ArgumentMatchers.eq(11L), any()))
+        when(feedbackSubmissionService.submit(any(), org.mockito.ArgumentMatchers.eq(11L), any()))
                 .thenReturn(new ActivityFeedbackResponse(
                         31L, 11L, FeedbackType.LIKED, null,
                         DevelopmentDomain.LANGUAGE, (short) 2, new BigDecimal("0.5")));

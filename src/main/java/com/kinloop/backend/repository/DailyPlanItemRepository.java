@@ -1,5 +1,6 @@
 package com.kinloop.backend.repository;
 
+import com.kinloop.backend.entity.Activity;
 import com.kinloop.backend.entity.DailyPlanItem;
 import java.util.List;
 import java.util.Optional;
@@ -13,6 +14,16 @@ import org.springframework.data.repository.query.Param;
 import jakarta.persistence.LockModeType;
 
 public interface DailyPlanItemRepository extends JpaRepository<DailyPlanItem, Long> {
+
+    @Query("""
+            select item.activity
+            from DailyPlanItem item
+            where item.id = :id
+              and item.dailyPlan.childId = :childId
+            """)
+    Optional<Activity> findActivityForFeedback(
+            @Param("id") Long id,
+            @Param("childId") Long childId);
 
     @EntityGraph(attributePaths = {"dailyPlan", "activity", "activity.instruction"})
     @Lock(LockModeType.PESSIMISTIC_WRITE)

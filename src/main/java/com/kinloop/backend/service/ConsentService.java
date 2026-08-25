@@ -4,6 +4,7 @@ import com.kinloop.backend.dto.consent.ConsentResponse;
 import com.kinloop.backend.entity.ConsentDocument;
 import com.kinloop.backend.entity.User;
 import com.kinloop.backend.entity.UserConsent;
+import com.kinloop.backend.entity.enums.ConsentType;
 import com.kinloop.backend.exception.RequiredConsentMissingException;
 import com.kinloop.backend.repository.ConsentDocumentRepository;
 import com.kinloop.backend.repository.UserConsentRepository;
@@ -81,6 +82,14 @@ public class ConsentService {
         if (!hasGrantedAllRequiredConsents(userId)) {
             throw new RequiredConsentMissingException();
         }
+    }
+
+    @Transactional(readOnly = true)
+    public boolean hasGrantedConsent(Long userId, ConsentType type) {
+        return consentDocumentRepository.findFirstByTypeAndActiveTrue(type)
+                .map(document -> userConsentRepository
+                        .existsByUserIdAndConsentDocumentIdAndGrantedTrue(userId, document.getId()))
+                .orElse(false);
     }
 
     private ConsentResponse toResponse(ConsentDocument document, UserConsent decision) {
