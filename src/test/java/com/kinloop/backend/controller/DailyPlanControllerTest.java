@@ -1,6 +1,9 @@
 package com.kinloop.backend.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -26,7 +29,7 @@ import com.kinloop.backend.security.JwtService;
 import com.kinloop.backend.service.ActivityMatchingService;
 import com.kinloop.backend.service.ChildService;
 import com.kinloop.backend.service.CurrentParentProfileService;
-import com.kinloop.backend.service.FeedbackLearningService;
+import com.kinloop.backend.service.SynchronousFeedbackSubmissionService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -45,7 +48,7 @@ class DailyPlanControllerTest {
     @MockBean private CurrentParentProfileService currentParentProfileService;
     @MockBean private ChildService childService;
     @MockBean private ActivityMatchingService matchingService;
-    @MockBean private FeedbackLearningService feedbackLearningService;
+    @MockBean private SynchronousFeedbackSubmissionService feedbackSubmissionService;
     @MockBean private JwtService jwtService;
     @MockBean private UserDetailsService userDetailsService;
     @MockBean private CustomAuthenticationEntryPoint authenticationEntryPoint;
@@ -100,7 +103,7 @@ class DailyPlanControllerTest {
         child.setId(9L);
         when(currentParentProfileService.currentParentProfileId(any())).thenReturn(5L);
         when(childService.getOwnedChild(9L, 5L)).thenReturn(child);
-        when(feedbackLearningService.submit(any(), org.mockito.ArgumentMatchers.eq(11L), any()))
+        when(feedbackSubmissionService.submit(any(), org.mockito.ArgumentMatchers.eq(11L), any()))
                 .thenReturn(new ActivityFeedbackResponse(
                         31L, 11L, FeedbackType.LIKED, null,
                         DevelopmentDomain.LANGUAGE, (short) 2, new BigDecimal("0.5")));
@@ -115,5 +118,22 @@ class DailyPlanControllerTest {
                 .andExpect(jsonPath("$.domain").value("LANGUAGE"))
                 .andExpect(jsonPath("$.domainLevel").value(2))
                 .andExpect(jsonPath("$.domainStreak").value(0.5));
+    }
+
+    @Test
+    void feedbackEndpointRejectsFreeTextLongerThan500Characters() throws Exception {
+        mockMvc.perform(post("/api/children/9/daily-plan/items/11/feedback")
+                        .with(user("parent@example.com").roles("PARENT"))
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content("""
+                                {"feedbackType":"LIKED","freeText":"%s"}
+                                """.formatted("a".repeat(501))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation failed"))
+                .andExpect(jsonPath("$.fieldErrors.freeText")
+                        .value("must be at most 500 characters"));
+
+        verify(feedbackSubmissionService, never()).submit(any(), anyLong(), any());
     }
 }

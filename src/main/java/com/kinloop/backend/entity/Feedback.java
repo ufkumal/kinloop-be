@@ -12,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -40,6 +41,7 @@ public class Feedback {
     @Enumerated(EnumType.STRING)
     @Column(name = "resolved_reason", length = 15)
     private FeedbackReason resolvedReason;
+    @Size(max = 500)
     @Column(name = "free_text", columnDefinition = "TEXT")
     private String freeText;
     @Column(nullable = false)

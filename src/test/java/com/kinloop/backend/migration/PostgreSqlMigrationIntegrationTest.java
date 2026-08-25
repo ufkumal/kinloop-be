@@ -81,7 +81,7 @@ class PostgreSqlMigrationIntegrationTest {
     }
 
     @Test
-    void appliesEveryMigrationThroughV35() throws SQLException {
+    void appliesEveryMigrationThroughV38() throws SQLException {
         MigrationHistory history = queryOne("""
                 SELECT count(*) AS migration_count,
                        min(version::integer) AS first_version,
@@ -96,10 +96,10 @@ class PostgreSqlMigrationIntegrationTest {
                 result.getBoolean("all_successful")));
 
         assertAll(
-                () -> assertEquals(35, migrationsExecuted),
-                () -> assertEquals(35, history.migrationCount()),
+                () -> assertEquals(38, migrationsExecuted),
+                () -> assertEquals(38, history.migrationCount()),
                 () -> assertEquals(1, history.firstVersion()),
-                () -> assertEquals(35, history.lastVersion()),
+                () -> assertEquals(38, history.lastVersion()),
                 () -> assertTrue(history.allSuccessful()));
     }
 
@@ -248,11 +248,20 @@ class PostgreSqlMigrationIntegrationTest {
     @Test
     void addsNullableFeedbackFreeTextColumn() throws SQLException {
         ColumnMetadata freeText = column("feedback", "free_text");
+        int configuredMaxLength = queryInt("""
+                SELECT max_length
+                FROM questions
+                WHERE code = 'FB_COMMENT'
+                  AND scope = 'FEEDBACK'
+                """);
+        String lengthConstraint = constraint("feedback", "chk_feedback_free_text_length");
 
         assertAll(
                 () -> assertEquals("text", freeText.dataType()),
                 () -> assertEquals("YES", freeText.nullable()),
-                () -> assertNull(freeText.columnDefault()));
+                () -> assertNull(freeText.columnDefault()),
+                () -> assertEquals(500, configuredMaxLength),
+                () -> assertTrue(lengthConstraint.contains("char_length(free_text) <= 500")));
     }
 
     @Test

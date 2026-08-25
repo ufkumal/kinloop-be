@@ -43,7 +43,7 @@ class FeedbackQuestionServiceTest {
         ));
         Question comment = question(
                 "FB_COMMENT", "Deneyiminizi kendi cümlelerinizle paylaşın.",
-                QuestionType.FREE_TEXT, false, 3, 2000);
+                QuestionType.FREE_TEXT, false, 3, 500);
 
         when(questionRepository.findByScopeAndActiveTrueOrderByDisplayOrderAsc(QuestionScope.FEEDBACK))
                 .thenReturn(List.of(enjoyment, comment));
@@ -57,7 +57,7 @@ class FeedbackQuestionServiceTest {
         assertEquals("LIKED", response.questions().get(0).options().get(0).code());
         assertEquals("FB_COMMENT", response.questions().get(1).code());
         assertFalse(response.questions().get(1).required());
-        assertEquals(2000, response.questions().get(1).maxLength());
+        assertEquals(500, response.questions().get(1).maxLength());
         verify(questionRepository).findByScopeAndActiveTrueOrderByDisplayOrderAsc(QuestionScope.FEEDBACK);
     }
 

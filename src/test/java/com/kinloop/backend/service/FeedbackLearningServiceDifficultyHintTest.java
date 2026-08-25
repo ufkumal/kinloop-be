@@ -39,7 +39,7 @@ class FeedbackLearningServiceDifficultyHintTest {
             }
         };
         service = new FeedbackLearningService(
-                null, null, null, null, null, null, domainRepository, parameters);
+                null, null, null, null, null, null, domainRepository, parameters, null, null);
     }
 
     @Test

@@ -9,35 +9,46 @@ import com.kinloop.backend.entity.ChildIntelligenceScore;
 import com.kinloop.backend.entity.ChildProfileSnapshot;
 import com.kinloop.backend.entity.DailyPlanItem;
 import com.kinloop.backend.entity.DunnProfile;
+import com.kinloop.backend.entity.ChildSensoryAdjustment;
 import com.kinloop.backend.entity.Feedback;
 import com.kinloop.backend.entity.FeedbackEffect;
+import com.kinloop.backend.entity.FeedbackLlmClassification;
 import com.kinloop.backend.entity.enums.DevelopmentDomain;
 import com.kinloop.backend.entity.enums.DifficultyHint;
 import com.kinloop.backend.entity.enums.DunnQuadrant;
 import com.kinloop.backend.entity.enums.FeedbackReason;
 import com.kinloop.backend.entity.enums.FeedbackType;
 import com.kinloop.backend.entity.enums.IntelligenceType;
+import com.kinloop.backend.entity.enums.InvolvementHint;
 import com.kinloop.backend.entity.enums.InvolvementType;
+import com.kinloop.backend.entity.enums.SensoryHint;
+import com.kinloop.backend.entity.enums.SituationHint;
 import com.kinloop.backend.exception.DailyPlanItemNotFoundException;
 import com.kinloop.backend.exception.FeedbackAlreadySubmittedException;
 import com.kinloop.backend.repository.ChildDomainLevelRepository;
 import com.kinloop.backend.repository.ChildIntelligenceScoreRepository;
 import com.kinloop.backend.repository.ChildProfileSnapshotRepository;
+import com.kinloop.backend.repository.ChildSensoryAdjustmentRepository;
 import com.kinloop.backend.repository.DailyPlanItemRepository;
 import com.kinloop.backend.repository.DunnProfileRepository;
 import com.kinloop.backend.repository.FeedbackEffectRepository;
+import com.kinloop.backend.repository.FeedbackLlmClassificationRepository;
 import com.kinloop.backend.repository.FeedbackRepository;
+import com.kinloop.backend.service.llm.FeedbackClassificationOutcome;
+import com.kinloop.backend.service.llm.ParsedClassification;
 import com.kinloop.backend.service.matching.MatchingParameters;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class FeedbackLearningService {
     private final DailyPlanItemRepository dailyPlanItemRepository;
     private final FeedbackRepository feedbackRepository;
@@ -47,12 +58,24 @@ public class FeedbackLearningService {
     private final ChildIntelligenceScoreRepository intelligenceRepository;
     private final ChildDomainLevelRepository domainRepository;
     private final MatchingParameters matchingParameters;
+    private final ChildSensoryAdjustmentRepository sensoryAdjustmentRepository;
+    private final FeedbackLlmClassificationRepository classificationRepository;
 
     @Transactional
     public ActivityFeedbackResponse submit(
             Child child,
             Long dailyPlanItemId,
             SubmitActivityFeedbackRequest request
+    ) {
+        return submit(child, dailyPlanItemId, request, FeedbackClassificationOutcome.notAttempted());
+    }
+
+    @Transactional
+    public ActivityFeedbackResponse submit(
+            Child child,
+            Long dailyPlanItemId,
+            SubmitActivityFeedbackRequest request,
+            FeedbackClassificationOutcome classificationOutcome
     ) {
         DailyPlanItem item = dailyPlanItemRepository
                 .findByIdAndDailyPlanChildId(dailyPlanItemId, child.getId())
@@ -69,13 +92,43 @@ public class FeedbackLearningService {
         Feedback feedback = feedbackRepository.save(
                 new Feedback(child.getId(), item, request.feedbackType(), reason, freeText));
 
-        Map<IntelligenceType, ChildIntelligenceScore> scores = intelligenceRepository.findByChildId(child.getId())
-                .stream().collect(Collectors.toMap(ChildIntelligenceScore::getIntelligenceType, Function.identity()));
-        applyGardnerLearning(feedback, item.getActivity(), request.feedbackType(), reason, scores, parameters);
-
         ChildDomainLevel domainLevel = requiredDomainLevel(
                 child.getId(), item.getActivity().getTargetDomain());
-        applyDomainLearning(domainLevel, item.getActivity(), request.feedbackType(), parameters);
+        ParsedClassification parsed = classificationOutcome.classification();
+        BigDecimal confidenceThreshold = parameters.get("llm_feedback_confidence_threshold");
+        boolean classificationApplicable = classificationOutcome.attempted()
+                && parsed.valid()
+                && confidenceThreshold != null
+                && parsed.confidence().compareTo(confidenceThreshold) >= 0;
+        if (classificationOutcome.attempted() && parsed.valid() && confidenceThreshold == null) {
+            log.warn("LLM classification ignored because llm_feedback_confidence_threshold is missing");
+        }
+        boolean transientSituation = classificationApplicable
+                && parsed.situationHint() == SituationHint.TRANSIENT;
+
+        if (!transientSituation) {
+            Map<IntelligenceType, ChildIntelligenceScore> scores = intelligenceRepository
+                    .findByChildId(child.getId()).stream()
+                    .collect(Collectors.toMap(ChildIntelligenceScore::getIntelligenceType, Function.identity()));
+            applyGardnerLearning(
+                    feedback,
+                    item.getActivity(),
+                    request.feedbackType(),
+                    reason,
+                    scores,
+                    parameters,
+                    classificationApplicable ? parsed.targetCorrection() : null,
+                    classificationApplicable ? parsed.secondaryHint() : null);
+            applyDomainLearning(domainLevel, item.getActivity(), request.feedbackType(), parameters);
+        }
+
+        if (classificationApplicable && !transientSituation) {
+            applyIndependentHints(child.getId(), item.getActivity(), parsed);
+        }
+        if (classificationApplicable && parsed.conflict()) {
+            log.warn("LLM_CONFLICT feedback={}", feedback.getId());
+        }
+        persistClassification(feedback, classificationOutcome, classificationApplicable);
         item.complete();
 
         return new ActivityFeedbackResponse(
@@ -108,17 +161,6 @@ public class FeedbackLearningService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private void applyGardnerLearning(
-            Feedback feedback,
-            Activity activity,
-            FeedbackType type,
-            FeedbackReason reason,
-            Map<IntelligenceType, ChildIntelligenceScore> scores,
-            Map<String, BigDecimal> parameters
-    ) {
-        applyGardnerLearning(feedback, activity, type, reason, scores, parameters, null, null);
-    }
-
     void applyGardnerLearning(
             Feedback feedback,
             Activity activity,
@@ -133,6 +175,9 @@ public class FeedbackLearningService {
                 ? targetOverride : activity.getTargetIntelligence();
         IntelligenceType secondaryType = secondaryOverride != null
                 ? secondaryOverride : activity.getSecondaryIntelligence();
+        if (secondaryType == targetType) {
+            secondaryType = null;
+        }
         ChildIntelligenceScore target = requiredScore(scores, targetType);
         target.recordFeedbackSample();
         if (type == FeedbackType.LIKED) {
@@ -185,6 +230,63 @@ public class FeedbackLearningService {
             case EASIER -> parameters.get("llm_difficulty_hint_easier_delta");
         };
         applyDomainDelta(requiredDomainLevel(childId, domain), delta, parameters);
+    }
+
+    @Transactional
+    public void applySensoryHint(Long childId, SensoryHint hint) {
+        ChildSensoryAdjustment adjustment = requiredSensoryAdjustment(childId);
+        short step = matchingParameters.load().get("llm_sensory_tolerance_step").shortValueExact();
+        adjustment.applySensoryAdjustment(hint, step);
+        sensoryAdjustmentRepository.save(adjustment);
+    }
+
+    @Transactional
+    public void applyInvolvementHint(Long childId, InvolvementHint hint) {
+        ChildSensoryAdjustment adjustment = requiredSensoryAdjustment(childId);
+        adjustment.applyInvolvementFilter(hint);
+        sensoryAdjustmentRepository.save(adjustment);
+    }
+
+    private ChildSensoryAdjustment requiredSensoryAdjustment(Long childId) {
+        return sensoryAdjustmentRepository.findByChildId(childId)
+                .orElseGet(() -> new ChildSensoryAdjustment(childId, (short) 0, (short) 0, (short) 0, null));
+    }
+
+    private void applyIndependentHints(Long childId, Activity activity, ParsedClassification parsed) {
+        if (parsed.sensoryHint() != null) {
+            applySensoryHint(childId, parsed.sensoryHint());
+        }
+        if (parsed.involvementHint() != null) {
+            applyInvolvementHint(childId, parsed.involvementHint());
+        }
+        if (parsed.difficultyHint() != null) {
+            applyDifficultyHint(childId, activity.getTargetDomain(), parsed.difficultyHint());
+        }
+        // durationHint is intentionally persistence-only in v2.
+    }
+
+    private void persistClassification(
+            Feedback feedback,
+            FeedbackClassificationOutcome outcome,
+            boolean applied
+    ) {
+        if (!outcome.attempted()) return;
+        ParsedClassification parsed = outcome.classification();
+        FeedbackLlmClassification classification = new FeedbackLlmClassification(
+                feedback,
+                outcome.modelName(),
+                outcome.rawResponse(),
+                parsed.confidence(),
+                parsed.targetCorrection(),
+                parsed.secondaryHint(),
+                parsed.sensoryHint(),
+                parsed.involvementHint(),
+                parsed.difficultyHint(),
+                parsed.situationHint(),
+                parsed.durationHint(),
+                parsed.conflict());
+        if (applied) classification.markApplied();
+        classificationRepository.save(classification);
     }
 
     private void applyDomainDelta(

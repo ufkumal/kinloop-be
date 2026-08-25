@@ -65,7 +65,43 @@ public class FeedbackLlmClassification {
     private boolean conflict;
     @Column(name = "raw_response", columnDefinition = "TEXT")
     private String rawResponse;
+    @Column(name = "model_name", length = 50)
+    private String modelName;
     @Generated(event = EventType.INSERT)
     @Column(name = "created_at", insertable = false, updatable = false)
     private OffsetDateTime createdAt;
+
+    public FeedbackLlmClassification(
+            Feedback feedback,
+            String modelName,
+            String rawResponse,
+            BigDecimal confidence,
+            IntelligenceType targetCorrection,
+            IntelligenceType secondaryHint,
+            SensoryHint sensoryHint,
+            InvolvementHint involvementHint,
+            DifficultyHint difficultyHint,
+            SituationHint situationHint,
+            DurationHint durationHint,
+            boolean conflict
+    ) {
+        this.feedback = feedback;
+        // @MapsId copies the feedback ID during persist. Leaving feedbackId null here
+        // also lets Spring Data recognize this instance as new instead of merging it.
+        this.modelName = modelName;
+        this.rawResponse = rawResponse;
+        this.confidence = confidence;
+        this.targetCorrection = targetCorrection;
+        this.secondaryHint = secondaryHint;
+        this.sensoryHint = sensoryHint;
+        this.involvementHint = involvementHint;
+        this.difficultyHint = difficultyHint;
+        this.situationHint = situationHint;
+        this.durationHint = durationHint;
+        this.conflict = conflict;
+    }
+
+    public void markApplied() {
+        this.applied = true;
+    }
 }
