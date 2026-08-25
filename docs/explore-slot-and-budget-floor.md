@@ -270,6 +270,167 @@ sayısı sıfır.
 
 ---
 
+## 3 · 2. gün yuva kontrolü · B5-B8
+
+EK bölümü Ada'nın 2. gününde kodun yüksek skorlu uzun etkinlikleri atladığını, yerine
+düşük skorlu kısa etkinlikler seçtiğini bildiriyor. Senaryoyu birebir kurdum.
+
+### Başlangıç durumu birebir tutturuldu
+
+Ada'yı oluşturdum, 1. gün planını EK'teki hâle getirdim (201 / 206 / 199) ve üç oyu
+verdim: 201 SEVDİ, 206 SEVDİ, 199 ZORLANDI. Oy sonrası durum:
+
+| | EK'in bildirdiği | Ölçtüğüm |
+|---|---|---|
+| `g[INTERPERSONAL]` | 3.60 | **3.60** ✅ |
+| `g[VERBAL_LINGUISTIC]` | 3.15 | **3.15** ✅ |
+| `g[LOGICAL_MATHEMATICAL]` | 3.15 | **3.15** ✅ |
+| diğer beş alan | 3.00 | **3.00** ✅ |
+| `streak[SOCIAL_EMOTIONAL]` | 2.0 | **2.0** ✅ |
+| `streak[GROSS_MOTOR]` | −0.5 | **−0.5** ✅ |
+| L (yedi alan) | 2 | **2** ✅ |
+
+**Başlangıç durumu birebir aynı.** Yani 2. günün girdisi tartışmasız doğru.
+
+### 2. günün sonucu
+
+| Yuva | id | Etkinlik | Süre | Skor | |
+|---|---|---|---|---|---|
+| DEVELOP | **232** | Birlikte kukla gösterisi hazırlama | 20 dk | 123.0 | ✅ |
+| STRENGTHEN | **107** | Kurallı kutu oyunu | 20 dk | 109.0 | ✅ |
+| EXPLORE | 155 | Hikâyeyi birlikte tamamlama | 10 dk | 108.0 | ✅ |
+
+```
+taahhüt 40 dk · toplam 50 dk · kademe 0 · Keşif within_budget = FALSE
+```
+
+**Bu, referans motorun beklediği planın birebir aynısı** — üç etkinlik, üç skor, üç yuva,
+taahhüt ve taşma dahil.
+
+EK'in bildirdiği plan (153 / 154 / 155, 25 dk) **bu kodda çıkmıyor.** Kod yüksek skorlu
+uzun etkinlikleri atlamıyor; tam tersine ikisini birden alıyor.
+
+### B5 · 232 ve 107 neden seçilmedi
+
+**Seçildiler.** Sorunun varsaydığı durum bu kodda oluşmuyor. Yine de zincirin her
+halkasını ölçtüm:
+
+| Kontrol | Sonuç |
+|---|---|
+| Havuzda mı (yaş, süre, scope, status) | ✅ ikisi de. Havuz 39 etkinlik |
+| Tazelik elemesine takılıyor mu | ❌ hayır. Pencere N = maks(2, tavan(39/6)) = **7 plan**, elenen yalnız 201, 206, 199 → kalan 36 |
+| Gelişim aday listesine giriyor mu | ✅ ikisi de — dönem görevi SOCIAL_EMOTIONAL |
+| Sıralamada kaçıncı | **232 birinci, 107 ikinci** |
+
+Gelişim yuvası aday sıralaması, 2. gün (dönem görevi SOCIAL_EMOTIONAL, tavan 40 dk):
+
+```
+sıra   id  dk   d    skor  yük  başlık
+   1  232  20   3   123.0    5  Birlikte kukla gösterisi hazırlama   <- kod bunu seçti
+   2  107  20   3   109.0    8  Kurallı kutu oyunu
+   3  153  10   2   103.0    5  Duygu kartları sessiz eşleştirme     <- EK'te seçildi denen
+   4   14  15   2    99.0    7  Duygu günlüğü çizimi
+   5  113  20   3    99.0   11  Takım görevi birlikte çadır kurma
+   6  208  10   2    93.0    4  Bitki bakım sözleşmesi
+   7  154   5   2    83.0    3  Teşekkür turu                        <- EK'te seçildi denen
+```
+
+Güçlendirme yuvası (en yüksek Gardner alanı = INTERPERSONAL 3.60), 232 alındıktan sonra:
+
+```
+sıra   id  dk   d    skor  yük  başlık
+   1  107  20   3   109.0    8  Kurallı kutu oyunu                   <- kod bunu seçti
+   2  153  10   2   103.0    5  Duygu kartları sessiz eşleştirme
+   3  113  20   3    99.0   11  Takım görevi birlikte çadır kurma
+   4  154   5   2    83.0    3  Teşekkür turu                        <- EK'te seçildi denen
+```
+
+EK'in skor dökümü de doğru: fark tamamen `Z` teriminden geliyor. L = 2 olduğu için
+`d = 3` tatlı nokta (`d = L+1` → **+20**), `d = 2` nötr (`d = L` → **0**). Kod bu
+farkı doğru uyguluyor ve tatlı noktadakini seçiyor.
+
+### B6 · Gelişim yuvasının süre tavanı
+
+`DailyPortfolioBuilder.fill()`, satır **77-84**:
+
+```java
+int reserve = pool.stream()
+        .mapToInt(candidate -> candidate.activity().getDurationMinutes())
+        .min().orElse(0);
+
+ScoredActivity development = firstFitting(
+        relaxSlots ? pool : byDomain(pool, request.periodDomain()),
+        selectedIds,
+        Math.max(0, remaining - reserve));
+```
+
+* Formül v6 §4.2'deki hâliyle: `tavan = kalan − (havuzdaki en kısa etkinlik süresi)`.
+* Rezerv **bir yuva için** ayrılıyor, iki için değil. Çıkarma tek kez yapılıyor ve
+  yalnız Gelişim yuvasında; Güçlendirme ve Keşif tavanı `kalan`.
+
+Ada'nın 2. gün havuzunda en kısa etkinlik **5 dakika**, yani:
+
+```
+Gelişim tavanı = 45 − 5 = 40 dk        232 (20 dk) rahatça sığıyor
+```
+
+**Tavan 232'yi elemiyor.**
+
+### B7 · Süre kademesi sıralamada nerede
+
+`CandidateOrdering.comparator()`, satır 21-25 — kademe sırası değişmemiş:
+
+```java
+Comparator.comparing(ScoredActivity::rawScore, Comparator.reverseOrder())   // 1
+    .thenComparingInt(candidate -> sampleCount(candidate, intelligenceScores)) // 2
+    .thenComparingInt(this::totalSensoryLoad)                                  // 3
+    .thenComparingInt(candidate -> candidate.activity().getDurationMinutes())  // 4  <- süre
+    .thenComparing(candidate -> seed(childId, planDate, ...));                 // 5
+```
+
+* Süre gerçekten **4. sırada**, yukarı taşınmamış.
+* Skor karşılaştırması `ScoredActivity::rawScore` üzerinden — **ham skor**, süreye
+  bölünmüş bir değer değil. Kodun hiçbir yerinde skor/süre oranı hesaplanmıyor.
+* Skorlar 123, 109 ve 103 iken **süre kademesine hiç ulaşılmıyor**; birinci kademe zaten
+  ayırıyor. Ölçüm bunu doğruluyor: 20 dakikalık 232, 10 dakikalık 153'ü geçti.
+
+### B8 · Üçüncü gün ve eğilim
+
+2. günün üç etkinliğine de aynı deseni uyguladım (232 SEVDİ, 107 SEVDİ, 155 ZORLANDI)
+ve 3. günü ölçtüm:
+
+| Yuva | id | Etkinlik | Süre | Skor |
+|---|---|---|---|---|
+| DEVELOP | 153 | Duygu kartları sessiz eşleştirme | 10 dk | 108.0 |
+| STRENGTHEN | 113 | Takım görevi birlikte çadır kurma | 20 dk | 89.0 |
+| EXPLORE | 108 | Origami basit köpek yüzü | 15 dk | 104.0 |
+
+```
+taahhüt 45 dk · toplam 45 dk · kademe 0 · üçü de bütçe içinde
+```
+
+Üç günün seyri:
+
+| Gün | Toplam | Taahhüt | Alt sınır 35 |
+|---|---|---|---|
+| 1 | 40 dk | 40 | tutuyor |
+| 2 | 50 dk | 40 | tutuyor |
+| 3 | 45 dk | 45 | tutuyor |
+
+**Eğilim azalmıyor.** EK'in bildirdiği 30 → 25 düşüşü bu kodda oluşmuyor.
+
+Not: 2. günün iki SEVDİ oyu `streak[SOCIAL_EMOTIONAL]`'i 2.0'dan 3.0'a çıkardı ve
+**basamak L2 → L3'e yükseldi**, sayaç sıfırlandı. §3.2'nin eşik kuralı doğru çalışıyor.
+Bu yüzden 3. günde `d = 3` etkinlikler artık nötr, `d = 4` olanlar tatlı nokta.
+
+### Bu bir hata mı, tasarlanmış davranış mı
+
+**Hiçbiri — bu kodda böyle bir davranış yok.** Yüksek skorlu uzun etkinlikler seçiliyor.
+Ölçtüğüm zincirin hiçbir halkasında (havuz, tazelik, aday listesi, süre tavanı, sıralama)
+232 ve 107'yi eleyen bir şey bulamadım.
+
+---
+
 ## 3 · Öneri: **(a)**, ama “ürün kararı” olarak değil, **içerik işi** olarak
 
 | Seçenek | Değerlendirme |
@@ -303,6 +464,19 @@ etkinlik var ve o bantlarda alt sınır tutuyor.
 12-24 ay bandında da rekabetçi uzun aday sıfır, ama oraya C şıkkı sunulmadığı için
 sorun üretmiyor.
 
+### İki bileşen aynı kök nedene mi bağlı
+
+EK, alt sınır sorununu iki bileşene ayırıyor. Ölçüm ikisini de çürütüyor:
+
+| Bileşen | Ölçüm |
+|---|---|
+| (i) Süre kademesi kısa etkinlikleri öne alıyor | ❌ Kademe kaldırıldığında da ters çevrildiğinde de altı profilde toplam süre **değişmiyor**. Kademe skorlar eşitken devreye giriyor; kısa olanın kazandığı yerlerde skorlar eşit değil |
+| (ii) Yüksek skorlu uzun etkinlikler hiç seçilmiyor | ❌ Ada'nın 2. gününde **ikisi de seçildi** — 232 (20 dk, 123.0) ve 107 (20 dk, 109.0). Sıralamada birinci ve ikinci sıradalar |
+
+Geriye tek bir gerçek bileşen kalıyor ve o da algoritmada değil: **36-48 ay bandında,
+dönem görevi alanında (LANGUAGE), rekabetçi (d = 2) uzun etkinlik sayısı sıfır.**
+Ada 54 aylık olduğu için o banda düşmüyor; onun planları zaten alt sınırı tutuyor.
+
 ### Ürün tarafına not
 
 Anne “35-45 dakika” yazan şıkkı seçip 30 dakikalık plan aldığında bunu bir eksiklik
@@ -316,7 +490,12 @@ taahhüt olarak değil öneri olarak sunmak. Karar sizin.
 
 | Bulgu | Durum |
 |---|---|
-| Ada'nın gözlenen planı (201/206/199, 30 dk) | ❌ **bu kodda çıkmıyor** — kod 201/206/232, 40 dk veriyor |
+| Ada'nın gözlenen 1. gün planı (201/206/199, 30 dk) | ❌ **bu kodda çıkmıyor** — kod 201/206/232, 40 dk veriyor |
+| Ada'nın gözlenen 2. gün planı (153/154/155, 25 dk) | ❌ **bu kodda çıkmıyor** — kod 232/107/155, taahhüt 40 dk veriyor |
+| 232 ve 107 neden seçilmedi | **seçildiler** — Gelişim sıralamasında 1. ve 2. sıradalar |
+| Gelişim süre tavanı | `kalan − en kısa` · tek yuvalık rezerv · Ada'da 45 − 5 = 40 dk |
+| Süre kademesi sıralamada | 4. sırada, ham skor üzerinden · skorlar 123/109/103 iken hiç ulaşılmıyor |
+| Üç günlük eğilim | 40 → 50 → 45 dk · **azalmıyor** |
 | Keşif yuvası plan içi örnekleme yapıyor mu | ❌ **hayır** — sayaç yalnız geri bildirimle artıyor, ilk gün sekiz alan da aday |
 | Sayacı artıran tek yer | `recordFeedbackSample()` · tek çağrı · `FeedbackLearningService:137` |
 | Plan içi çeşitlilik kuralı | yazılmamış — taslağı bölüm 1'de, kod değişikliği gerektirir |
