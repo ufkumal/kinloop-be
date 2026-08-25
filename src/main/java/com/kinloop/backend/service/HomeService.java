@@ -8,10 +8,12 @@ import com.kinloop.backend.dto.questionnaire.CurrentQuestionnaireResponse;
 import com.kinloop.backend.entity.Activity;
 import com.kinloop.backend.entity.ActivityInstruction;
 import com.kinloop.backend.entity.Child;
+import com.kinloop.backend.entity.DailyPlan;
 import com.kinloop.backend.entity.DailyPlanItem;
 import com.kinloop.backend.entity.Feedback;
 import com.kinloop.backend.repository.ChildRepository;
 import com.kinloop.backend.repository.DailyPlanItemRepository;
+import com.kinloop.backend.repository.DailyPlanRepository;
 import com.kinloop.backend.repository.FeedbackRepository;
 import com.kinloop.backend.repository.ParentProfileRepository;
 import com.kinloop.backend.entity.enums.AgeBand;
@@ -30,6 +32,7 @@ public class HomeService {
 
     private final ChildRepository childRepository;
     private final DailyPlanItemRepository dailyPlanItemRepository;
+    private final DailyPlanRepository dailyPlanRepository;
     private final FeedbackRepository feedbackRepository;
     private final ChildService childService;
     private final ParentProfileRepository parentProfileRepository;
@@ -78,8 +81,19 @@ public class HomeService {
 
         String childName = childService.displayName(
                 currentChild, currentChild.ageInMonths(LocalDate.now()));
+        Optional<DailyPlan> currentPlan = dailyPlanRepository
+                .findFirstByChildIdAndPlanDateOrderByIdDesc(currentChild.getId(), LocalDate.now());
+        boolean shouldListExistingPlan = currentPlan
+                .filter(plan -> !plan.getItems().isEmpty())
+                .filter(plan -> !plan.isRoundCompleted())
+                .isPresent();
+        boolean shouldGenerateDailyPlan = currentPlan.isEmpty()
+                || currentPlan.filter(DailyPlan::isRoundCompleted).isPresent();
+
         if (latestItem == null) {
-            return HomeStatusResponse.returningUser(currentChild.getId(), childName, null, true);
+            return HomeStatusResponse.returningUser(
+                    currentChild.getId(), childName, null,
+                    shouldGenerateDailyPlan, shouldListExistingPlan);
         }
 
         Optional<Feedback> feedback = feedbackRepository.findByChildIdAndDailyPlanItemId(
@@ -88,10 +102,9 @@ public class HomeService {
         if (!latestItem.isCompleted()) {
             return HomeStatusResponse.feedbackRequired(currentChild.getId(), childName, latestActivity);
         }
-        boolean shouldGenerateNextRound = !dailyPlanItemRepository
-                .existsByDailyPlanIdAndCompletedAtIsNull(latestItem.getDailyPlan().getId());
         return HomeStatusResponse.returningUser(
-                currentChild.getId(), childName, latestActivity, shouldGenerateNextRound);
+                currentChild.getId(), childName, latestActivity,
+                shouldGenerateDailyPlan, shouldListExistingPlan);
     }
 
     private HomeStatusResponse incompleteStatus(Child child) {

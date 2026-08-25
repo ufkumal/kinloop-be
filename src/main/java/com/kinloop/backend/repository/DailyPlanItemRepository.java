@@ -14,8 +14,6 @@ import jakarta.persistence.LockModeType;
 
 public interface DailyPlanItemRepository extends JpaRepository<DailyPlanItem, Long> {
 
-    boolean existsByDailyPlanIdAndCompletedAtIsNull(Long dailyPlanId);
-
     @EntityGraph(attributePaths = {"dailyPlan", "activity", "activity.instruction"})
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<DailyPlanItem> findByIdAndDailyPlanChildId(Long id, Long childId);

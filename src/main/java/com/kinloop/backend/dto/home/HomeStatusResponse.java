@@ -13,15 +13,18 @@ public record HomeStatusResponse(
         String nextQuestionCode,
         Long nextConsentId,
         HomeActivityResponse latestActivity,
-        Boolean shouldGenerateDailyPlan
+        Boolean shouldGenerateDailyPlan,
+        Boolean shouldListExistingPlan
 ) {
 
     public static HomeStatusResponse newUser() {
-        return new HomeStatusResponse("new-user", null, null, null, null, null, null, null, null);
+        return new HomeStatusResponse(
+                "new-user", null, null, null, null, null, null, null, null, null);
     }
 
     public static HomeStatusResponse returningUser() {
-        return new HomeStatusResponse("returning-user", null, null, null, null, null, null, null, null);
+        return new HomeStatusResponse(
+                "returning-user", null, null, null, null, null, null, null, null, null);
     }
 
     public static HomeStatusResponse halfOnboardingUser(
@@ -32,20 +35,22 @@ public record HomeStatusResponse(
     ) {
         return new HomeStatusResponse(
                 "half-onboarding-user", child.childId(), child.displayName(), child,
-                onboardingStep, nextQuestionCode, nextConsentId, null, false);
+                onboardingStep, nextQuestionCode, nextConsentId, null, false, false);
     }
 
     public static HomeStatusResponse returningUser(Long childId, String childName,
                                                    HomeActivityResponse latestActivity,
-                                                   boolean shouldGenerateDailyPlan) {
+                                                   boolean shouldGenerateDailyPlan,
+                                                   boolean shouldListExistingPlan) {
         return new HomeStatusResponse(
                 "returning-user", childId, childName, null, null, null, null,
-                latestActivity, shouldGenerateDailyPlan);
+                latestActivity, shouldGenerateDailyPlan, shouldListExistingPlan);
     }
 
     public static HomeStatusResponse feedbackRequired(Long childId, String childName,
                                                       HomeActivityResponse latestActivity) {
         return new HomeStatusResponse(
-                "feedback-required", childId, childName, null, null, null, null, latestActivity, false);
+                "feedback-required", childId, childName, null, null, null, null,
+                latestActivity, false, false);
     }
 }
