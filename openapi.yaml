@@ -67,7 +67,10 @@ components:
           $ref: '#/components/schemas/HomeActivityResponse'
         shouldGenerateDailyPlan:
           type: boolean
-          description: When true, the client should offer navigation to the daily-plan /today flow.
+          description: When true, calling /today will generate a new daily-plan round.
+        shouldListExistingPlan:
+          type: boolean
+          description: When true, calling /today will return the existing unfinished daily-plan round.
 
     HomeChildResponse:
       type: object
