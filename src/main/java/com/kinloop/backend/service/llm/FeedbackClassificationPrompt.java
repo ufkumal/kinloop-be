@@ -79,6 +79,7 @@ public final class FeedbackClassificationPrompt {
     }
 
     public static String buildUserMessage(Activity activity, FeedbackType feedbackType, String freeText) {
+       //TODO make all in english.
         return """
                 Etkinlik: %s
                 Hedef zekâ: %s

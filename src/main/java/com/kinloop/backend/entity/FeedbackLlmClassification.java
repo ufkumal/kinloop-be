@@ -86,7 +86,8 @@ public class FeedbackLlmClassification {
             boolean conflict
     ) {
         this.feedback = feedback;
-        this.feedbackId = feedback.getId();
+        // @MapsId copies the feedback ID during persist. Leaving feedbackId null here
+        // also lets Spring Data recognize this instance as new instead of merging it.
         this.modelName = modelName;
         this.rawResponse = rawResponse;
         this.confidence = confidence;

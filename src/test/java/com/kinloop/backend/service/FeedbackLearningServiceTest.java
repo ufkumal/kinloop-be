@@ -21,6 +21,7 @@ import com.kinloop.backend.entity.DailyPlanItem;
 import com.kinloop.backend.entity.DunnProfile;
 import com.kinloop.backend.entity.Feedback;
 import com.kinloop.backend.entity.FeedbackEffect;
+import com.kinloop.backend.entity.FeedbackLlmClassification;
 import com.kinloop.backend.entity.enums.DevelopmentDomain;
 import com.kinloop.backend.entity.enums.DunnQuadrant;
 import com.kinloop.backend.entity.enums.FeedbackReason;
@@ -218,7 +219,11 @@ class FeedbackLearningServiceTest {
         assertEquals(0, target.getFeedbackCount());
         assertEquals(0, BigDecimal.ZERO.compareTo(domainLevel.getStreak()));
         verify(feedbackEffectRepository, never()).save(any());
-        verify(classificationRepository).save(any());
+        ArgumentCaptor<FeedbackLlmClassification> classificationCaptor =
+                ArgumentCaptor.forClass(FeedbackLlmClassification.class);
+        verify(classificationRepository).save(classificationCaptor.capture());
+        assertNull(classificationCaptor.getValue().getFeedbackId());
+        assertEquals(91L, classificationCaptor.getValue().getFeedback().getId());
     }
 
     @Test

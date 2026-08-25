@@ -39,9 +39,9 @@ public class FeedbackClassificationService {
         }
 
         try {
-            if (!hasDataProcessingConsent(childId)) {
+         /*   if (!hasDataProcessingConsent(childId)) {
                 return FeedbackClassificationOutcome.notAttempted();
-            }
+            }*/
 
             String rawResponse = client.complete(
                     FeedbackClassificationPrompt.SYSTEM_PROMPT,

@@ -27,7 +27,7 @@ jwt:
   expiration-ms: 86400000 # 24h
 
 llm:
-  enabled: ${LLM_ENABLED:false}
+  enabled: ${LLM_ENABLED:true}
   api-key: ${ANTHROPIC_API_KEY:}
   model: ${LLM_MODEL:claude-haiku-4-5}
   temperature: 0

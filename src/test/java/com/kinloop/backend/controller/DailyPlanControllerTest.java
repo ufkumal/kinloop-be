@@ -1,6 +1,9 @@
 package com.kinloop.backend.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -115,5 +118,22 @@ class DailyPlanControllerTest {
                 .andExpect(jsonPath("$.domain").value("LANGUAGE"))
                 .andExpect(jsonPath("$.domainLevel").value(2))
                 .andExpect(jsonPath("$.domainStreak").value(0.5));
+    }
+
+    @Test
+    void feedbackEndpointRejectsFreeTextLongerThan500Characters() throws Exception {
+        mockMvc.perform(post("/api/children/9/daily-plan/items/11/feedback")
+                        .with(user("parent@example.com").roles("PARENT"))
+                        .with(csrf())
+                        .contentType("application/json")
+                        .content("""
+                                {"feedbackType":"LIKED","freeText":"%s"}
+                                """.formatted("a".repeat(501))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation failed"))
+                .andExpect(jsonPath("$.fieldErrors.freeText")
+                        .value("must be at most 500 characters"));
+
+        verify(feedbackSubmissionService, never()).submit(any(), anyLong(), any());
     }
 }
