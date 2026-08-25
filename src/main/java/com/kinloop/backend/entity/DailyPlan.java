@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 @Entity
-@Table(name = "daily_plans", uniqueConstraints = @UniqueConstraint(columnNames = {"child_id", "plan_date"}))
+@Table(name = "daily_plans")
 public class DailyPlan {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -84,6 +84,14 @@ public class DailyPlan {
         this.committedDurationMinutes = committedDurationMinutes;
         this.totalDurationMinutes = totalDurationMinutes;
         this.fallbackLevel = fallbackLevel;
+    }
+
+    /**
+     * A non-empty plan can be replaced only after feedback submission has
+     * completed every item in the current three-activity round.
+     */
+    public boolean isRoundCompleted() {
+        return !items.isEmpty() && items.stream().distinct().allMatch(DailyPlanItem::isCompleted);
     }
 
     public void select(Long activityId) {

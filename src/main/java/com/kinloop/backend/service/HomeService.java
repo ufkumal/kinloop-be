@@ -88,7 +88,10 @@ public class HomeService {
         if (!latestItem.isCompleted()) {
             return HomeStatusResponse.feedbackRequired(currentChild.getId(), childName, latestActivity);
         }
-        return HomeStatusResponse.returningUser(currentChild.getId(), childName, latestActivity, true);
+        boolean shouldGenerateNextRound = !dailyPlanItemRepository
+                .existsByDailyPlanIdAndCompletedAtIsNull(latestItem.getDailyPlan().getId());
+        return HomeStatusResponse.returningUser(
+                currentChild.getId(), childName, latestActivity, shouldGenerateNextRound);
     }
 
     private HomeStatusResponse incompleteStatus(Child child) {

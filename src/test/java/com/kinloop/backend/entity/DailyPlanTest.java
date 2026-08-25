@@ -85,6 +85,23 @@ class DailyPlanTest {
         assertTrue(plan.getItems().getFirst().isSelected());
     }
 
+    @Test
+    void roundIsCompletedOnlyWhenEveryItemHasFeedbackCompletion() {
+        DailyPlan plan = new DailyPlan(10L, LocalDate.now());
+        plan.add(activity(1L), PlanSlotType.STRENGTHEN, BigDecimal.ONE);
+        plan.add(activity(2L), PlanSlotType.DEVELOP, BigDecimal.TEN);
+        plan.add(activity(3L), PlanSlotType.EXPLORE, BigDecimal.ZERO);
+
+        assertFalse(plan.isRoundCompleted());
+        plan.getItems().forEach(DailyPlanItem::complete);
+        assertTrue(plan.isRoundCompleted());
+    }
+
+    @Test
+    void emptyFallbackPlanIsNotTreatedAsACompletedRound() {
+        assertFalse(new DailyPlan(10L, LocalDate.now()).isRoundCompleted());
+    }
+
     private Activity activity(Long id) {
         Activity activity = new Activity();
         ReflectionTestUtils.setField(activity, "id", id);

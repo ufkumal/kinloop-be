@@ -75,7 +75,8 @@ class ActivityMatchingServiceTest {
         stored.recordBookkeeping(30, 40, (short) 2);
         ReflectionTestUtils.setField(stored, "id", 77L);
         when(childRepository.findLockedById(9L)).thenReturn(Optional.of(child));
-        when(planRepository.findByChildIdAndPlanDate(9L, LocalDate.now())).thenReturn(Optional.of(stored));
+        when(planRepository.findFirstByChildIdAndPlanDateOrderByIdDesc(9L, LocalDate.now()))
+                .thenReturn(Optional.of(stored));
 
         DailyPlanResponse response = service.today(child);
 
@@ -102,7 +103,8 @@ class ActivityMatchingServiceTest {
         ReflectionTestUtils.setField(item, "id", 42L);
         stored.getItems().add(item);
         when(childRepository.findLockedById(9L)).thenReturn(Optional.of(child));
-        when(planRepository.findByChildIdAndPlanDate(9L, LocalDate.now())).thenReturn(Optional.of(stored));
+        when(planRepository.findFirstByChildIdAndPlanDateOrderByIdDesc(9L, LocalDate.now()))
+                .thenReturn(Optional.of(stored));
 
         DailyPlanResponse response = service.today(child);
 
@@ -117,13 +119,38 @@ class ActivityMatchingServiceTest {
         DailyPlan stored = new DailyPlan(9L, LocalDate.now());
         stored.recordBookkeeping(0, 0, (short) 4);
         when(childRepository.findLockedById(9L)).thenReturn(Optional.of(child));
-        when(planRepository.findByChildIdAndPlanDate(9L, LocalDate.now())).thenReturn(Optional.of(stored));
+        when(planRepository.findFirstByChildIdAndPlanDateOrderByIdDesc(9L, LocalDate.now()))
+                .thenReturn(Optional.of(stored));
 
         DailyPlanResponse response = service.today(child);
 
         assertEquals("EMPTY_POOL", response.state());
         assertNotNull(response.message());
         assertEquals(0, response.activities().size());
+    }
+
+    @Test
+    void completedSameDayRoundContinuesToNewPlanGeneration() {
+        Child child = new Child();
+        child.setId(9L);
+        child.setParentId(4L);
+        DailyPlan completed = new DailyPlan(9L, LocalDate.now());
+        completed.add(activity(15L), PlanSlotType.STRENGTHEN, BigDecimal.TEN);
+        completed.add(activity(16L), PlanSlotType.DEVELOP, BigDecimal.ONE);
+        completed.add(activity(17L), PlanSlotType.EXPLORE, BigDecimal.ZERO);
+        completed.getItems().forEach(DailyPlanItem::complete);
+        ParentProfile parent = new ParentProfile();
+        parent.setId(4L);
+        parent.setUserId(12L);
+        when(childRepository.findLockedById(9L)).thenReturn(Optional.of(child));
+        when(planRepository.findFirstByChildIdAndPlanDateOrderByIdDesc(9L, LocalDate.now()))
+                .thenReturn(Optional.of(completed));
+        when(parentProfileRepository.findById(4L)).thenReturn(Optional.of(parent));
+        org.mockito.Mockito.doThrow(new RequiredConsentMissingException())
+                .when(consentService).requireAllRequiredConsents(12L);
+
+        assertThrows(RequiredConsentMissingException.class, () -> service.today(child));
+        verify(parentProfileRepository).findById(4L);
     }
 
     @Test
@@ -134,7 +161,7 @@ class ActivityMatchingServiceTest {
         plan.add(activity(15L), PlanSlotType.STRENGTHEN, BigDecimal.TEN);
         plan.add(activity(16L), PlanSlotType.DEVELOP, BigDecimal.ONE);
         plan.add(activity(17L), PlanSlotType.EXPLORE, BigDecimal.ZERO);
-        when(planRepository.findByChildIdAndPlanDate(9L, LocalDate.now()))
+        when(planRepository.findFirstByChildIdAndPlanDateOrderByIdDesc(9L, LocalDate.now()))
                 .thenReturn(Optional.of(plan));
         when(planRepository.save(plan)).thenReturn(plan);
 
@@ -153,7 +180,8 @@ class ActivityMatchingServiceTest {
         parent.setId(4L);
         parent.setUserId(12L);
         when(childRepository.findLockedById(9L)).thenReturn(Optional.of(child));
-        when(planRepository.findByChildIdAndPlanDate(9L, LocalDate.now())).thenReturn(Optional.empty());
+        when(planRepository.findFirstByChildIdAndPlanDateOrderByIdDesc(9L, LocalDate.now()))
+                .thenReturn(Optional.empty());
         when(parentProfileRepository.findById(4L)).thenReturn(Optional.of(parent));
         org.mockito.Mockito.doThrow(new RequiredConsentMissingException())
                 .when(consentService).requireAllRequiredConsents(12L);
