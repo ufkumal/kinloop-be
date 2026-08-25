@@ -45,13 +45,21 @@ var, yaz" demek aynı şey değil. Aşağıdaki 1. ve 4. bölümler bunu ayırı
 ve plan üreten tek metot (`ActivityMatchingService.today()`) o günün satırını bulduğu an
 yenisini hesaplamadan geri dönüyor.
 
-`ActivityMatchingService.java:49-51`:
+`ActivityMatchingService.java:49-55`:
 
 ```java
+Child child = childRepository.findLockedById(requestedChild.getId()).orElseThrow();
 LocalDate today = LocalDate.now();
 Optional<DailyPlan> existing = planRepository.findByChildIdAndPlanDate(child.getId(), today);
-if (existing.isPresent()) return response(existing.get(), child);
+if (existing.isPresent()) return response(existing.get(), child);       // <-- kapı burada
+
+ChildProfileSnapshot profile = profileRepository.findByChildIdAndCurrentTrue(child.getId())
+        .orElseThrow(() -> new IllegalStateException("Child onboarding profile is missing"));
 ```
+
+**Satır sırası burada kanıt niteliğinde.** Duyusal tipi ve kaygı puanını taşıyan
+`ChildProfileSnapshot` satır 54'te, yani **erken dönüşten sonra** okunuyor. Kapı yalnız
+iki şeye bakıyor: çocuk kimliği ve bugünün tarihi. Profili görmesi fiziken mümkün değil.
 
 `daily_plans` kısıtı (canlı ve yerelde doğrulandı):
 
@@ -266,6 +274,53 @@ başka yerden biliyorsa üçüne de oy verilebiliyor (canlıda öyle olmuş gör
 > yer `/api/home/status` ve orası **tek bir item** gösteriyor (son seçilen). Yani plan
 > ekranından doğrudan üç etkinliğe oy verilemiyor; her biri için önce seçim yapmak
 > gerekiyor — ve o seçim yukarıdaki 500'ü veriyor.
+
+### S5b · İki vakanın ortak noktası — **aynı kök neden, ölçüldü**
+
+Deniz profilini de (30 ay, **C4**, kaygı **5**, bütçe A) yerelde baştan kurdum.
+
+**1. gün planı — canlıdaki Deniz planıyla birebir aynı:**
+
+| Yuva | id | Başlık | Süre | Katılım | Skor |
+|---|---|---|---|---|---|
+| DEVELOP | 141 | Fısıltı kuklası sohbeti | 10 dk | BIRLIKTE | 146.05 |
+| STRENGTHEN | 223 | Uzun kukla hikâyesi | 15 dk | BIRLIKTE | 146.05 |
+| EXPLORE | 71 | Bitki sulama görevi | 5 dk | **GOZETIMLI** | 95.0 |
+
+Gözetimli garantisi Keşif yuvasında devreye girmiş, `within_budget = FALSE`.
+Üç geri bildirim sonrası durum da birebir aynı çıktı:
+
+```
+VERBAL_LINGUISTIC  3.30      LANGUAGE  L1  streak 0.5
+INTERPERSONAL      3.15      resolved_reason (DISLIKED) = SENSORY
+diğer altı alan    3.00
+```
+
+**Sonra tam olarak Mavi'deki davranış:** `shouldGenerateDailyPlan = true` oldu, endpoint
+çağrıldı, **aynı `planId` döndü**, `daily_plans` tek satırda kaldı.
+
+Planı bir gün geriye alınca yeni plan sorunsuz üretildi — 142 / 183 / 144, kademe 0,
+taahhüt 25, üçü de bütçe içinde, Keşif yine gözetimli. Yani **C4'te de motor doğru**.
+
+**İki çocuğun `daily_plans` kayıtları:**
+
+| Çocuk | Tip | Kaygı | Plan | Tarih | Bütçe | Taahhüt | Toplam | Kademe |
+|---|---|---|---|---|---|---|---|---|
+| 17 · Mavi | C1 | 2 | 14 | 24 Ağu | 15-25 | 25 | 30 | 0 |
+| 17 · Mavi | C1 | 2 | 15 | 25 Ağu | 15-25 | 25 | 30 | 0 |
+| 18 · Deniz | C4 | 5 | 16 | 24 Ağu | 15-25 | 25 | 30 | 0 |
+| 18 · Deniz | C4 | 5 | 17 | 25 Ağu | 15-25 | 25 | 25 | 0 |
+
+Yapı aynı: gün başına tek satır, kademe 0. Tek fark Deniz'in 2. gününde toplamın 25
+olması — Keşif bütçeye sığdığı için.
+
+**Aynı kod yolu mu çalışıyor:** evet, ve bu bir gözlem değil, yapısal bir zorunluluk.
+Erken dönüş kapısı (satır 52) profil okunmadan önce çalışıyor; `HomeService.getStatus()`
+ise `ChildProfileSnapshot`'a hiç dokunmuyor. Tetikleme yolunda **profile bağlı tek bir
+dal yok**. Duyusal tip ve kaygı yalnız üretim adımında (havuz filtresi, gözetimli
+garantisi) rol oynuyor, o da ancak kapı açıldıktan sonra çalışıyor.
+
+Hatanın C1 ve C4'te tekrarlaması bu yüzden şaşırtıcı değil — **her profilde tekrarlar.**
 
 ### S6 · Referans planı doğrula — **tuttu**
 
