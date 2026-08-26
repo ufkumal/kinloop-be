@@ -67,13 +67,12 @@ class FeedbackLearningServiceGardnerOverrideTest {
     }
 
     @Test
-    void overridesReplaceBothOriginalCreditsAndNeverCreditMoreThanTwoFields() {
+    void v4TargetCorrectionSuppressesOnlyTargetAndKeepsBothSecondaryCredits() {
         ChildIntelligenceScore originalTarget = score(IntelligenceType.VERBAL_LINGUISTIC);
         ChildIntelligenceScore originalSecondary = score(IntelligenceType.MUSICAL);
-        ChildIntelligenceScore targetOverride = score(IntelligenceType.INTERPERSONAL);
-        ChildIntelligenceScore secondaryOverride = score(IntelligenceType.NATURALISTIC);
+        ChildIntelligenceScore observedSecondary = score(IntelligenceType.NATURALISTIC);
         Map<IntelligenceType, ChildIntelligenceScore> scores = scores(
-                originalTarget, originalSecondary, targetOverride, secondaryOverride);
+                originalTarget, originalSecondary, observedSecondary);
 
         service.applyGardnerLearning(
                 feedback,
@@ -82,16 +81,31 @@ class FeedbackLearningServiceGardnerOverrideTest {
                 null,
                 scores,
                 parameters(),
-                IntelligenceType.INTERPERSONAL,
+                IntelligenceType.VERBAL_LINGUISTIC,
                 IntelligenceType.NATURALISTIC);
 
         assertScore("3.00", originalTarget);
-        assertScore("3.00", originalSecondary);
-        assertScore("3.30", targetOverride);
-        assertScore("3.15", secondaryOverride);
-        assertEquals(0, originalTarget.getFeedbackCount());
-        assertEquals(1, targetOverride.getFeedbackCount());
+        assertScore("3.15", originalSecondary);
+        assertScore("3.15", observedSecondary);
+        assertEquals(1, originalTarget.getFeedbackCount());
         assertEquals(2, savedEffectCount.get());
+    }
+
+    @Test
+    void v4SecondaryHintAddsAThirdCredit() {
+        ChildIntelligenceScore target = score(IntelligenceType.VERBAL_LINGUISTIC);
+        ChildIntelligenceScore activitySecondary = score(IntelligenceType.MUSICAL);
+        ChildIntelligenceScore observedSecondary = score(IntelligenceType.NATURALISTIC);
+
+        service.applyGardnerLearning(
+                feedback, activity, FeedbackType.LIKED, null,
+                scores(target, activitySecondary, observedSecondary), parameters(),
+                null, IntelligenceType.NATURALISTIC);
+
+        assertScore("3.30", target);
+        assertScore("3.15", activitySecondary);
+        assertScore("3.15", observedSecondary);
+        assertEquals(3, savedEffectCount.get());
     }
 
     private ChildIntelligenceScore score(IntelligenceType type) {

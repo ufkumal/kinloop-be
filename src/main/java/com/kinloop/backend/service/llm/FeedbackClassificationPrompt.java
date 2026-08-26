@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * System prompt and user-message format, verbatim from
- * Kidloop_FewShot_Prompt_v2.md §4/§5. The parent's text stays Turkish; the model
+ * Kidloop_FewShot_Prompt_v4.md §4/§5. The parent's text stays Turkish; the model
  * reads Turkish and produces English enum labels matching the real schema.
  */
 public final class FeedbackClassificationPrompt {
@@ -25,8 +25,26 @@ public final class FeedbackClassificationPrompt {
             2. Sayı üretme. Yalnız alan adı ve etiket üret.
             3. Ebeveynin işaretlediği butonu tekrar etme. Buton "sevdi" ise ve metin
                yalnız "sevdi" diyorsa yeni bilgi yoktur; bütün alanları null bırak.
-            4. target_correction yalnız metin etkinliğin hedef zekâsından FARKLI bir alana
-               işaret ediyorsa doldurulur.
+            4. target_correction ile secondary_hint arasındaki ayrım:
+
+               YALANLAMA -> target_correction dolar.
+               Metin, etkinliğin hedef zekâsının YAŞANMADIĞINI açıkça söylüyorsa.
+               İşaretler: "eline bile almadı", "hiç ilgilenmedi", "bakmadı bile",
+               "hiç katılmadı", "yapmadı", "bıraktı".
+               Bu alana YAŞANMAYAN zekâyı yaz, gidilecek alanı değil.
+
+               EKLEME -> secondary_hint dolar.
+               Metin hedef zekânın yaşandığını doğruluyor ve üstüne başka bir alan
+               ekliyorsa. İşaretler: "yaptı ama asıl", "eline aldı ama", "arada".
+
+               DEĞİNMEME -> secondary_hint dolar AMA confidence en fazla 0.65 olur.
+               Metin hedef zekâdan hiç bahsetmiyor. Hedefin yaşanıp yaşanmadığı
+               bilinmiyor; belirsizlik confidence ile bildirilir.
+
+               TEKRAR -> ikisi de null kalır.
+
+               Bir metin hem YALANLAMA hem EKLEME taşıyabilir: yaşanmayan alan
+               target_correction'a, yaşanan alan secondary_hint'e yazılır.
             5. Emin değilsen alanı null bırak ve confidence değerini düşür. Boş çıktı,
                yanlış çıktıdan iyidir.
             6. Ebeveyn kendi gözlemini değil başkasından duyduğunu aktarıyorsa
@@ -37,6 +55,16 @@ public final class FeedbackClassificationPrompt {
                BAĞIMSIZDIR. Bir metin hem Gardner sinyali hem duyusal ipucu taşıyabilir.
             9. Metin butonla çelişiyorsa conflict alanını true yap ama yine de
                diğer alanları doldur.
+
+            10. Metin sağlık, gelişim geriliği, tanı ya da davranış sorunu ima ediyorsa
+                hiçbir alanı doldurma ve confidence değerini 0.40'ın altında ver.
+                Bu bir sınıflandırma konusu değildir.
+
+            11. Olumsuz duygusal tepki (öfke, ağlama, yıkıcı davranış, isteksizlik) bir
+                Gardner sinyali DEĞİLDİR. Çocuğun bir alanda sinirlenmesi o alanı sevdiği
+                anlamına gelmez. Böyle bir metinde target_correction ve secondary_hint
+                null kalır. Metin ayrıca duyusal, katılım, zorluk ya da durum ipucu
+                içermiyorsa bütün alanlar null olur ve confidence 0.60'ın altında verilir.
 
             GARDNER ALANLARI
             VERBAL_LINGUISTIC, LOGICAL_MATHEMATICAL, MUSICAL, BODILY_KINAESTHETIC,
@@ -60,7 +88,7 @@ public final class FeedbackClassificationPrompt {
             }
             """;
     public static final String SYSTEM_PROMPT = INSTRUCTIONS
-            + "\n\nAŞAĞIDAKİ 32 ÖRNEĞİ SIRASIYLA REFERANS AL:\n\n"
+            + "\n\nAŞAĞIDAKİ 41 ÖRNEĞİ SIRASIYLA REFERANS AL:\n\n"
             + loadFewShotExamples();
 
     private FeedbackClassificationPrompt() {

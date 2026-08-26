@@ -227,7 +227,7 @@ class FeedbackLearningServiceTest {
     }
 
     @Test
-    void targetCorrectionMatchingActivitySecondaryHonorsPerAreaDeltaCap() {
+    void invalidTargetCorrectionCannotRedirectTargetCredit() {
         ParsedClassification parsed = new ParsedClassification(
                 true, new BigDecimal("0.85"), IntelligenceType.MUSICAL, null,
                 null, null, null, null, null, false);
@@ -238,10 +238,55 @@ class FeedbackLearningServiceTest {
                 new SubmitActivityFeedbackRequest(FeedbackType.LIKED, "Şarkıyı sevdi"),
                 FeedbackClassificationOutcome.completed("claude-haiku-4-5", "{}", parsed));
 
-        assertEquals(0, new BigDecimal("3.00").compareTo(target.getScore()));
-        assertEquals(0, new BigDecimal("3.30").compareTo(secondary.getScore()));
-        assertEquals(1, secondary.getFeedbackCount());
-        verify(feedbackEffectRepository, org.mockito.Mockito.times(1)).save(any());
+        assertEquals(0, new BigDecimal("3.30").compareTo(target.getScore()));
+        assertEquals(0, new BigDecimal("3.15").compareTo(secondary.getScore()));
+        assertEquals(1, target.getFeedbackCount());
+        verify(feedbackEffectRepository, org.mockito.Mockito.times(2)).save(any());
+    }
+
+    @Test
+    void v4T3DuplicateSecondaryHintIsPersistedAsNullAndNotDoubleCounted() {
+        ParsedClassification parsed = new ParsedClassification(
+                true, new BigDecimal("0.85"), null, IntelligenceType.MUSICAL,
+                null, null, null, null, null, false);
+
+        service.submit(
+                child,
+                11L,
+                new SubmitActivityFeedbackRequest(FeedbackType.LIKED, "Markette çok konuştu"),
+                FeedbackClassificationOutcome.completed("claude-haiku-4-5", "{}", parsed));
+
+        assertEquals(0, new BigDecimal("3.30").compareTo(target.getScore()));
+        assertEquals(0, new BigDecimal("3.15").compareTo(secondary.getScore()));
+        ArgumentCaptor<FeedbackLlmClassification> captor =
+                ArgumentCaptor.forClass(FeedbackLlmClassification.class);
+        verify(classificationRepository).save(captor.capture());
+        assertNull(captor.getValue().getSecondaryHint());
+    }
+
+    @Test
+    void v4T4LowConfidenceA3HintIsStoredButNotApplied() {
+        ChildIntelligenceScore logical = new ChildIntelligenceScore(
+                7L, IntelligenceType.LOGICAL_MATHEMATICAL, new BigDecimal("3.00"));
+        when(intelligenceRepository.findByChildId(7L)).thenReturn(List.of(target, secondary, logical));
+        ParsedClassification parsed = new ParsedClassification(
+                true, new BigDecimal("0.65"), null, IntelligenceType.LOGICAL_MATHEMATICAL,
+                null, null, null, null, null, false);
+
+        service.submit(
+                child,
+                11L,
+                new SubmitActivityFeedbackRequest(FeedbackType.LIKED, "Legolarla kule yaptı"),
+                FeedbackClassificationOutcome.completed("claude-haiku-4-5", "{}", parsed));
+
+        assertEquals(0, new BigDecimal("3.30").compareTo(target.getScore()));
+        assertEquals(0, new BigDecimal("3.15").compareTo(secondary.getScore()));
+        assertEquals(0, new BigDecimal("3.00").compareTo(logical.getScore()));
+        ArgumentCaptor<FeedbackLlmClassification> captor =
+                ArgumentCaptor.forClass(FeedbackLlmClassification.class);
+        verify(classificationRepository).save(captor.capture());
+        assertEquals(IntelligenceType.LOGICAL_MATHEMATICAL, captor.getValue().getSecondaryHint());
+        org.junit.jupiter.api.Assertions.assertFalse(captor.getValue().isApplied());
     }
 
     private Activity activity(int difficulty, InvolvementType involvementType) {
@@ -277,6 +322,7 @@ class FeedbackLearningServiceTest {
         values.put("ceiling_counter_cap", new BigDecimal("1.0"));
         values.put("attachment_anxiety_threshold", new BigDecimal("4"));
         values.put("llm_feedback_confidence_threshold", new BigDecimal("0.70"));
+        values.put("llm_max_affected_domains", new BigDecimal("3"));
         return values;
     }
 }
