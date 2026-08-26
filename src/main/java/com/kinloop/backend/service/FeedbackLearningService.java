@@ -38,7 +38,9 @@ import com.kinloop.backend.service.llm.FeedbackClassificationOutcome;
 import com.kinloop.backend.service.llm.ParsedClassification;
 import com.kinloop.backend.service.matching.MatchingParameters;
 import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -95,6 +97,9 @@ public class FeedbackLearningService {
         ChildDomainLevel domainLevel = requiredDomainLevel(
                 child.getId(), item.getActivity().getTargetDomain());
         ParsedClassification parsed = classificationOutcome.classification();
+        if (parsed.valid()) {
+            parsed = sanitizeClassification(parsed, item.getActivity(), request.feedbackType(), parameters);
+        }
         BigDecimal confidenceThreshold = parameters.get("llm_feedback_confidence_threshold");
         boolean classificationApplicable = classificationOutcome.attempted()
                 && parsed.valid()
@@ -128,7 +133,7 @@ public class FeedbackLearningService {
         if (classificationApplicable && parsed.conflict()) {
             log.warn("LLM_CONFLICT feedback={}", feedback.getId());
         }
-        persistClassification(feedback, classificationOutcome, classificationApplicable);
+        persistClassification(feedback, classificationOutcome, parsed, classificationApplicable);
         item.complete();
 
         return new ActivityFeedbackResponse(
@@ -168,27 +173,77 @@ public class FeedbackLearningService {
             FeedbackReason reason,
             Map<IntelligenceType, ChildIntelligenceScore> scores,
             Map<String, BigDecimal> parameters,
-            IntelligenceType targetOverride,
-            IntelligenceType secondaryOverride
+            IntelligenceType targetCorrection,
+            IntelligenceType secondaryHint
     ) {
-        IntelligenceType targetType = targetOverride != null
-                ? targetOverride : activity.getTargetIntelligence();
-        IntelligenceType secondaryType = secondaryOverride != null
-                ? secondaryOverride : activity.getSecondaryIntelligence();
-        if (secondaryType == targetType) {
-            secondaryType = null;
-        }
+        IntelligenceType targetType = activity.getTargetIntelligence();
+        IntelligenceType secondaryType = activity.getSecondaryIntelligence();
         ChildIntelligenceScore target = requiredScore(scores, targetType);
         target.recordFeedbackSample();
         if (type == FeedbackType.LIKED) {
-            applyDelta(feedback, target, parameters.get("liked_target_delta"), parameters);
-            if (secondaryType != null) {
+            if (targetCorrection != targetType) {
+                applyDelta(feedback, target, parameters.get("liked_target_delta"), parameters);
+            }
+            if (secondaryType != null && secondaryType != targetType) {
                 applyDelta(feedback, requiredScore(scores, secondaryType),
+                        parameters.get("liked_secondary_delta"), parameters);
+            }
+            if (secondaryHint != null
+                    && secondaryHint != targetType
+                    && secondaryHint != secondaryType) {
+                applyDelta(feedback, requiredScore(scores, secondaryHint),
                         parameters.get("liked_secondary_delta"), parameters);
             }
         } else if (type == FeedbackType.DISLIKED && reason == FeedbackReason.INTEREST) {
             applyDelta(feedback, target, parameters.get("disliked_interest_delta"), parameters);
         }
+    }
+
+    private ParsedClassification sanitizeClassification(
+            ParsedClassification parsed,
+            Activity activity,
+            FeedbackType feedbackType,
+            Map<String, BigDecimal> parameters
+    ) {
+        IntelligenceType targetCorrection = parsed.targetCorrection();
+        IntelligenceType secondaryHint = parsed.secondaryHint();
+        boolean conflict = parsed.conflict();
+
+        if (feedbackType == FeedbackType.DISLIKED && targetCorrection != null) {
+            targetCorrection = null;
+            conflict = false;
+        } else if (targetCorrection != null
+                && targetCorrection != activity.getTargetIntelligence()) {
+            targetCorrection = null;
+        } else if (feedbackType == FeedbackType.LIKED && targetCorrection != null) {
+            conflict = true;
+        }
+
+        if (secondaryHint == activity.getTargetIntelligence()
+                || secondaryHint == activity.getSecondaryIntelligence()
+                || secondaryHint == targetCorrection) {
+            secondaryHint = null;
+        }
+
+        BigDecimal maximum = parameters.get("llm_max_affected_domains");
+        if (secondaryHint != null) {
+            if (maximum == null) {
+                log.warn("LLM secondary_hint ignored because llm_max_affected_domains is missing");
+                secondaryHint = null;
+            } else {
+                Set<IntelligenceType> affected = new HashSet<>();
+                affected.add(activity.getTargetIntelligence());
+                if (activity.getSecondaryIntelligence() != null) {
+                    affected.add(activity.getSecondaryIntelligence());
+                }
+                affected.add(secondaryHint);
+                if (affected.size() > maximum.intValue()) {
+                    secondaryHint = null;
+                }
+            }
+        }
+
+        return parsed.withGardnerHints(targetCorrection, secondaryHint, conflict);
     }
 
     private void applyDelta(
@@ -268,10 +323,10 @@ public class FeedbackLearningService {
     private void persistClassification(
             Feedback feedback,
             FeedbackClassificationOutcome outcome,
+            ParsedClassification parsed,
             boolean applied
     ) {
         if (!outcome.attempted()) return;
-        ParsedClassification parsed = outcome.classification();
         FeedbackLlmClassification classification = new FeedbackLlmClassification(
                 feedback,
                 outcome.modelName(),

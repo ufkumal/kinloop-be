@@ -12,7 +12,7 @@ import com.kinloop.backend.entity.enums.SituationHint;
 import java.math.BigDecimal;
 import org.springframework.stereotype.Component;
 
-/** Validation rules per Kidloop_FewShot_Prompt_v2.md §10. */
+/** Validation rules per Kidloop_FewShot_Prompt_v4.md §10. */
 @Component
 public class FeedbackClassificationParser {
     private final ObjectMapper objectMapper;

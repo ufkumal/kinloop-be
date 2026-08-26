@@ -9,7 +9,7 @@ import com.kinloop.backend.entity.enums.SituationHint;
 import java.math.BigDecimal;
 
 /**
- * Validated result of parsing one model response (Kidloop_FewShot_Prompt_v2.md §10).
+ * Validated result of parsing one model response (Kidloop_FewShot_Prompt_v4.md §10).
  * valid=false means the response was unusable (unparseable JSON, or confidence missing
  * or outside 0.0-1.0) — nothing in it should be trusted, including confidence itself.
  * When valid=true, individual fields may still be null: either the model said so, or an
@@ -36,5 +36,15 @@ public record ParsedClassification(
         return new ParsedClassification(
                 valid, cappedConfidence, targetCorrection, secondaryHint, sensoryHint,
                 involvementHint, difficultyHint, situationHint, durationHint, conflict);
+    }
+
+    public ParsedClassification withGardnerHints(
+            IntelligenceType sanitizedTargetCorrection,
+            IntelligenceType sanitizedSecondaryHint,
+            boolean sanitizedConflict
+    ) {
+        return new ParsedClassification(
+                valid, confidence, sanitizedTargetCorrection, sanitizedSecondaryHint, sensoryHint,
+                involvementHint, difficultyHint, situationHint, durationHint, sanitizedConflict);
     }
 }

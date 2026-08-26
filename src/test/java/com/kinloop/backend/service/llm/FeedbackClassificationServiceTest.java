@@ -83,6 +83,18 @@ class FeedbackClassificationServiceTest {
     }
 
     @Test
+    void missingDataProcessingConsentDoesNotCallProvider() {
+        when(llmProperties.isEnabled()).thenReturn(true);
+        when(consentService.hasGrantedConsent(1L, ConsentType.DATA_PROCESSING)).thenReturn(false);
+
+        FeedbackClassificationOutcome outcome = service.classify(
+                7L, activity, FeedbackType.LIKED, "Hikaye anlattı");
+
+        assertFalse(outcome.attempted());
+        verify(client, never()).complete(any(), any());
+    }
+
+    @Test
     void invalidProviderJsonIsReturnedForUnappliedAuditStorage() {
         when(llmProperties.isEnabled()).thenReturn(true);
         when(client.complete(any(), any())).thenReturn("not json");
