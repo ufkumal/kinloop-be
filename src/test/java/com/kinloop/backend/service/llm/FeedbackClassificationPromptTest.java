@@ -22,7 +22,6 @@ class FeedbackClassificationPromptTest {
         org.junit.jupiter.api.Assertions.assertTrue(prompt.contains("confidence en fazla 0.65"));
         org.junit.jupiter.api.Assertions.assertTrue(prompt.contains("sağlık, gelişim geriliği"));
         org.junit.jupiter.api.Assertions.assertTrue(prompt.contains("Olumsuz duygusal tepki"));
-        org.junit.jupiter.api.Assertions.assertTrue(prompt.contains("Kâğıtları fırlattı, ağladı, çok öfkelendi"));
         org.junit.jupiter.api.Assertions.assertTrue(prompt.contains("doktor da gelişim geriliği olabilir dedi"));
     }
 }

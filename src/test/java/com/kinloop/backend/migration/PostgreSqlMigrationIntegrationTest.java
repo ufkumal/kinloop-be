@@ -81,7 +81,7 @@ class PostgreSqlMigrationIntegrationTest {
     }
 
     @Test
-    void appliesEveryMigrationThroughV38() throws SQLException {
+    void appliesEveryMigrationThroughV39() throws SQLException {
         MigrationHistory history = queryOne("""
                 SELECT count(*) AS migration_count,
                        min(version::integer) AS first_version,
@@ -96,11 +96,29 @@ class PostgreSqlMigrationIntegrationTest {
                 result.getBoolean("all_successful")));
 
         assertAll(
-                () -> assertEquals(38, migrationsExecuted),
-                () -> assertEquals(38, history.migrationCount()),
+                () -> assertEquals(39, migrationsExecuted),
+                () -> assertEquals(39, history.migrationCount()),
                 () -> assertEquals(1, history.firstVersion()),
-                () -> assertEquals(38, history.lastVersion()),
+                () -> assertEquals(39, history.lastVersion()),
                 () -> assertTrue(history.allSuccessful()));
+    }
+
+    @Test
+    void installsLlmMaximumAffectedDomainsParameter() throws SQLException {
+        ScoringParameter parameter = queryOne("""
+                SELECT value, description
+                FROM scoring_parameters
+                WHERE parameter_key = 'llm_max_affected_domains'
+                """, result -> new ScoringParameter(
+                result.getBigDecimal("value"),
+                result.getString("description")));
+
+        assertAll(
+                () -> assertDecimal("3", parameter.value()),
+                () -> assertEquals(
+                        "Maximum Gardner domains affected by one feedback: activity target, "
+                                + "activity secondary, and LLM secondary hint",
+                        parameter.description()));
     }
 
     @Test
@@ -804,6 +822,9 @@ class PostgreSqlMigrationIntegrationTest {
 
     private record MigrationHistory(
             int migrationCount, int firstVersion, int lastVersion, boolean allSuccessful) {
+    }
+
+    private record ScoringParameter(BigDecimal value, String description) {
     }
 
     private record ActivityPool(

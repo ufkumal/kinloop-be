@@ -1,17 +1,6 @@
 package com.kinloop.backend;
 
-import com.kinloop.backend.repository.ChildRepository;
-import com.kinloop.backend.repository.EmailVerificationTokenRepository;
-import com.kinloop.backend.repository.ParentProfileRepository;
-import com.kinloop.backend.repository.UserRepository;
-import com.kinloop.backend.repository.WorkshopProfileRepository;
-import com.kinloop.backend.repository.QuestionRepository;
-import com.kinloop.backend.repository.QuestionnaireSessionRepository;
-import com.kinloop.backend.repository.QuestionOptionRepository;
-import com.kinloop.backend.repository.ChildAnswerRepository;
-import com.kinloop.backend.repository.ChildProfileSnapshotRepository;
-import com.kinloop.backend.repository.DailyPlanItemRepository;
-import com.kinloop.backend.repository.DailyPlanRepository;
+import com.kinloop.backend.repository.*;
 import java.lang.reflect.Proxy;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -27,7 +16,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
                 "spring.autoconfigure.exclude="
                         + "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,"
                         + "org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration,"
-                        + "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration"
+                        + "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration",
+                "jwt.secret=kinloop-test-secret-key-at-least-32-bytes"
         }
 )
 @Import(KinloopBackendApplicationTests.SecurityTestConfig.class)
@@ -97,6 +87,45 @@ class KinloopBackendApplicationTests {
         WorkshopProfileRepository workshopProfileRepository() {
             return repositoryProxy(WorkshopProfileRepository.class);
         }
+
+        @Bean
+        ConsentDocumentRepository consentDocumentRepository() { return repositoryProxy(ConsentDocumentRepository.class); }
+
+        @Bean
+        UserConsentRepository userConsentRepository() { return repositoryProxy(UserConsentRepository.class); }
+
+        @Bean
+        FeedbackRepository feedbackRepository() { return repositoryProxy(FeedbackRepository.class); }
+
+        @Bean
+        FeedbackEffectRepository feedbackEffectRepository() { return repositoryProxy(FeedbackEffectRepository.class); }
+
+        @Bean
+        FeedbackLlmClassificationRepository feedbackLlmClassificationRepository() { return repositoryProxy(FeedbackLlmClassificationRepository.class); }
+
+        @Bean
+        DunnProfileRepository dunnProfileRepository() { return repositoryProxy(DunnProfileRepository.class); }
+
+        @Bean
+        ChildIntelligenceScoreRepository childIntelligenceScoreRepository() { return repositoryProxy(ChildIntelligenceScoreRepository.class); }
+
+        @Bean
+        ChildDomainLevelRepository childDomainLevelRepository() { return repositoryProxy(ChildDomainLevelRepository.class); }
+
+        @Bean
+        ChildSensoryAdjustmentRepository childSensoryAdjustmentRepository() { return repositoryProxy(ChildSensoryAdjustmentRepository.class); }
+
+        @Bean
+        ScoringParameterRepository scoringParameterRepository() { return repositoryProxy(ScoringParameterRepository.class); }
+
+        @Bean
+        ActivityRepository activityRepository() { return repositoryProxy(ActivityRepository.class); }
+
+        @Bean
+        DevelopmentalPeriodTaskRepository developmentalPeriodTaskRepository() { return repositoryProxy(DevelopmentalPeriodTaskRepository.class); }
+
+        @Bean
+        RecommendationRepository recommendationRepository() { return repositoryProxy(RecommendationRepository.class); }
 
         private static <T> T repositoryProxy(Class<T> repositoryType) {
             Object proxy = Proxy.newProxyInstance(
