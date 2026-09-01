@@ -1,4 +1,4 @@
-package com.kinloop.backend.service.impl;
+package com.kinloop.backend.service;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -15,7 +15,6 @@ import com.kinloop.backend.repository.ParentProfileRepository;
 import com.kinloop.backend.repository.UserRepository;
 import com.kinloop.backend.repository.WorkshopProfileRepository;
 import com.kinloop.backend.security.JwtService;
-import com.kinloop.backend.service.EmailService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,7 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
-class AuthServiceImplTest {
+class AuthServiceTest {
 
     @Mock private UserRepository userRepository;
     @Mock private EmailVerificationTokenRepository tokenRepository;
@@ -35,11 +34,11 @@ class AuthServiceImplTest {
     @Mock private ParentProfileRepository parentProfileRepository;
     @Mock private WorkshopProfileRepository workshopProfileRepository;
 
-    private AuthServiceImpl authService;
+    private AuthService authService;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthServiceImpl(userRepository, tokenRepository, passwordEncoder, jwtService,
+        authService = new AuthService(userRepository, tokenRepository, passwordEncoder, jwtService,
                 emailService, parentProfileRepository, workshopProfileRepository);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);

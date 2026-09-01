@@ -19,6 +19,20 @@ components:
       schema:
         type: integer
         format: int64
+    ConsentId:
+      name: consentId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    DailyPlanItemId:
+      name: dailyPlanItemId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
   schemas:
     UserRole:
       type: string
@@ -38,6 +52,28 @@ components:
     TriggerReason:
       type: string
       enum: [INITIAL, AGE_BAND, MANUAL]
+    FeedbackType:
+      type: string
+      enum: [LIKED, STRUGGLED, DISLIKED]
+    FeedbackReason:
+      type: string
+      enum: [SENSORY, INVOLVEMENT, INTEREST]
+    ConsentType:
+      type: string
+      enum: [TERMS, PRIVACY, KVKK, MARKETING, DATA_PROCESSING]
+    DevelopmentDomain:
+      type: string
+      enum: [GROSS_MOTOR, FINE_MOTOR, LANGUAGE, SOCIAL_EMOTIONAL, COGNITIVE, SENSORY, SELF_REGULATION]
+    InvolvementType:
+      type: string
+      enum: [BIRLIKTE, GOZETIMLI, BAGIMSIZ]
+    PreferenceMode:
+      type: string
+      enum: [BALANCED, KEYIF, GELISIM]
+    IntelligenceType:
+      type: string
+      enum: [VERBAL_LINGUISTIC, LOGICAL_MATHEMATICAL, VISUAL_SPATIAL,
+             BODILY_KINAESTHETIC, MUSICAL, INTERPERSONAL, INTRAPERSONAL, NATURALISTIC]
 
     HomeStatusResponse:
       type: object
@@ -143,11 +179,11 @@ components:
           type: integer
           format: int64
         feedbackType:
-          type: string
-          enum: [LIKED, STRUGGLED, DISLIKED]
+          $ref: '#/components/schemas/FeedbackType'
         resolvedReason:
-          type: string
-          enum: [SENSORY, INVOLVEMENT, INTEREST]
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/FeedbackReason'
         freeText:
           type: string
         createdAt:
@@ -385,17 +421,19 @@ components:
         maxAgeMonths:
           type: integer
         targetIntelligence:
-          type: string
+          $ref: '#/components/schemas/IntelligenceType'
         secondaryIntelligence:
-          type: string
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/IntelligenceType'
         targetDomain:
-          type: string
+          $ref: '#/components/schemas/DevelopmentDomain'
         difficulty:
           type: integer
         durationMinutes:
           type: integer
         involvementType:
-          type: string
+          $ref: '#/components/schemas/InvolvementType'
         noiseLoad:
           type: integer
         visualLoad:
@@ -643,6 +681,285 @@ components:
         ageMonths:
           type: integer
 
+    FeedbackQuestionResponse:
+      type: object
+      required: [code, body, type, required, displayOrder, options]
+      properties:
+        code:
+          type: string
+        body:
+          type: string
+        helperText:
+          type: string
+          nullable: true
+        type:
+          $ref: '#/components/schemas/QuestionType'
+        required:
+          type: boolean
+        displayOrder:
+          type: integer
+        maxLength:
+          type: integer
+          nullable: true
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionOptionResponse'
+
+    FeedbackQuestionsResponse:
+      type: object
+      required: [questions]
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedbackQuestionResponse'
+
+    UpdateConsentRequest:
+      type: object
+      required: [granted]
+      properties:
+        granted:
+          type: boolean
+
+    ConsentResponse:
+      type: object
+      required: [consentId, type, version, title, summary, content, required, effectiveAt]
+      properties:
+        consentId:
+          type: integer
+          format: int64
+        type:
+          $ref: '#/components/schemas/ConsentType'
+        version:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        content:
+          type: string
+        required:
+          type: boolean
+        effectiveAt:
+          type: string
+          format: date-time
+        granted:
+          type: boolean
+          nullable: true
+          description: Null when the authenticated user has not responded to this consent.
+        respondedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ParentProfileDetailsResponse:
+      type: object
+      required: [parentProfileId, email, fullName]
+      properties:
+        parentProfileId:
+          type: integer
+          format: int64
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+
+    ProfileAnswerResponse:
+      type: object
+      required: [questionCode, question, questionType, displayOrder, answeredAt]
+      properties:
+        questionCode:
+          type: string
+        question:
+          type: string
+        questionType:
+          $ref: '#/components/schemas/QuestionType'
+        displayOrder:
+          type: integer
+        optionCode:
+          type: string
+          nullable: true
+        value:
+          type: string
+          nullable: true
+        displayValue:
+          type: string
+          nullable: true
+        answeredAt:
+          type: string
+          format: date-time
+
+    ChildProfileResponse:
+      type: object
+      required: [childId, displayName, birthDate, ageMonths, preferenceMode,
+                 dailyTimeBudgetMin, dailyTimeBudgetMax, onboardingAnswers]
+      properties:
+        childId:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        ageMonths:
+          type: integer
+        gender:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Gender'
+        preferenceMode:
+          $ref: '#/components/schemas/PreferenceMode'
+        dailyTimeBudgetMin:
+          type: integer
+        dailyTimeBudgetMax:
+          type: integer
+        onboardingCompletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        onboardingAnswers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileAnswerResponse'
+
+    ProfileResponse:
+      type: object
+      required: [parent, children]
+      properties:
+        parent:
+          $ref: '#/components/schemas/ParentProfileDetailsResponse'
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChildProfileResponse'
+
+    ActivityHistoryItemResponse:
+      type: object
+      required: [dailyPlanItemId, activityId, title, durationMinutes, targetDomain,
+                 involvementType, planDate, selectedAt, completed]
+      properties:
+        dailyPlanItemId:
+          type: integer
+          format: int64
+        activityId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        durationMinutes:
+          type: integer
+        targetDomain:
+          $ref: '#/components/schemas/DevelopmentDomain'
+        involvementType:
+          $ref: '#/components/schemas/InvolvementType'
+        planDate:
+          type: string
+          format: date
+        selectedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completed:
+          type: boolean
+
+    ActivityHistoryResponse:
+      type: object
+      required: [childId, page, size, hasNext, activities]
+      properties:
+        childId:
+          type: integer
+          format: int64
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        hasNext:
+          type: boolean
+        activities:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityHistoryItemResponse'
+
+    SelectDailyActivityRequest:
+      type: object
+      required: [activityId]
+      properties:
+        activityId:
+          type: integer
+          format: int64
+
+    SubmitActivityFeedbackRequest:
+      type: object
+      required: [feedbackType]
+      properties:
+        feedbackType:
+          $ref: '#/components/schemas/FeedbackType'
+        freeText:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    ActivityFeedbackResponse:
+      type: object
+      required: [feedbackId, dailyPlanItemId, feedbackType, domain, domainLevel, domainStreak]
+      properties:
+        feedbackId:
+          type: integer
+          format: int64
+        dailyPlanItemId:
+          type: integer
+          format: int64
+        feedbackType:
+          $ref: '#/components/schemas/FeedbackType'
+        resolvedReason:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/FeedbackReason'
+        domain:
+          $ref: '#/components/schemas/DevelopmentDomain'
+        domainLevel:
+          type: integer
+        domainStreak:
+          type: number
+
+    ApiErrorResponse:
+      type: object
+      required: [error, status]
+      properties:
+        error:
+          type: string
+        status:
+          type: integer
+        fieldErrors:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+
 paths:
   /api/home/status:
     get:
@@ -659,9 +976,25 @@ paths:
         '401':
           description: Missing, expired, or invalid access token
 
+  /api/home/feedback/questions:
+    get:
+      summary: Get activity feedback questions and answer options
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Active feedback questions in display order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedbackQuestionsResponse'
+        '401':
+          description: Missing, expired, or invalid access token
+
   /api/auth/register:
     post:
       summary: Register a new user
+      security: []
       requestBody:
         required: true
         content:
@@ -679,6 +1012,7 @@ paths:
   /api/auth/verify:
     get:
       summary: Verify email with token
+      security: []
       parameters:
         - name: token
           in: query
@@ -699,6 +1033,7 @@ paths:
   /api/auth/login:
     post:
       summary: Login user
+      security: []
       requestBody:
         required: true
         content:
@@ -838,6 +1173,107 @@ paths:
               schema:
                 $ref: '#/components/schemas/OnboardingClosingMessageResponse'
 
+  /api/consents:
+    get:
+      summary: Get active consent documents and the authenticated user's decisions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Active consents in display order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConsentResponse'
+        '401':
+          description: Missing, expired, or invalid access token
+
+  /api/consents/{consentId}:
+    put:
+      summary: Grant or revoke an active consent
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ConsentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateConsentRequest'
+      responses:
+        '200':
+          description: Updated consent decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentResponse'
+        '400':
+          description: Validation failed or the active consent was not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Missing, expired, or invalid access token
+
+  /api/profile:
+    get:
+      summary: Get the authenticated parent's profile and children
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Parent profile with child details and onboarding answers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '401':
+          description: Missing, expired, or invalid access token
+
+  /api/children/{childId}/activity-history:
+    get:
+      summary: Get paginated selected-activity history for an owned child
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChildId'
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Slice of selected activities ordered by history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityHistoryResponse'
+        '400':
+          description: Page or size is outside its allowed range
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Missing, expired, or invalid access token
+        '404':
+          description: Child does not belong to the authenticated parent
+
   /api/children/{childId}/daily-plan/today:
     get:
       summary: Get or generate today's persisted plan
@@ -854,6 +1290,76 @@ paths:
                 $ref: '#/components/schemas/DailyPlanResponse'
         '403':
           description: One or more active required consents have not been granted
+
+  /api/children/{childId}/daily-plan/today/selection:
+    post:
+      summary: Select an activity from today's plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChildId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelectDailyActivityRequest'
+      responses:
+        '200':
+          description: Daily plan with the selected activity state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyPlanResponse'
+        '400':
+          description: Validation failed or the activity is not in the daily plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Missing, expired, or invalid access token
+        '404':
+          description: Child or daily plan was not found
+
+  /api/children/{childId}/daily-plan/items/{dailyPlanItemId}/feedback:
+    post:
+      summary: Submit feedback for a selected daily-plan activity
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ChildId'
+        - $ref: '#/components/parameters/DailyPlanItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitActivityFeedbackRequest'
+      responses:
+        '200':
+          description: Persisted feedback and resulting learning state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityFeedbackResponse'
+        '400':
+          description: Validation failed or the item is not valid for feedback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Missing, expired, or invalid access token
+        '404':
+          description: Child or daily-plan item was not found
+        '409':
+          description: Feedback was already submitted for this item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
   /api/children/{childId}/questionnaire/current:
     get:
       summary: Get current questionnaire for a child
