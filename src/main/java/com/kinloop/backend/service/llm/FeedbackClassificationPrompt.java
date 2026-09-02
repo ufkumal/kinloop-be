@@ -88,14 +88,14 @@ public final class FeedbackClassificationPrompt {
             }
             """;
     public static final String SYSTEM_PROMPT = INSTRUCTIONS
-            + "\n\nAŞAĞIDAKİ 41 ÖRNEĞİ SIRASIYLA REFERANS AL:\n\n"
-            + loadFewShotExamples();
+            + "\n\nAŞAĞIDAKİ 13 ÖRNEĞİ SIRASIYLA REFERANS AL:\n\n"
+            + loadManyShotExamples();
 
     private FeedbackClassificationPrompt() {
     }
 
-    private static String loadFewShotExamples() {
-        String resource = "/prompts/feedback-classification-few-shot.md";
+    private static String loadManyShotExamples() {
+        String resource = "/prompts/feedback-classification-many-shot.md";
         try (InputStream input = FeedbackClassificationPrompt.class.getResourceAsStream(resource)) {
             if (input == null) {
                 throw new IllegalStateException("Missing prompt resource: " + resource);
