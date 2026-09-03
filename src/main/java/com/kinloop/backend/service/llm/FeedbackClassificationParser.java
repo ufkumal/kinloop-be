@@ -27,7 +27,7 @@ public class FeedbackClassificationParser {
         }
         JsonNode node;
         try {
-            node = objectMapper.readTree(rawJson);
+            node = objectMapper.readTree(unwrapMarkdownCodeFence(rawJson));
         } catch (JsonProcessingException e) {
             return ParsedClassification.invalid();
         }
@@ -59,6 +59,21 @@ public class FeedbackClassificationParser {
                 readEnum(node, "situation_hint", SituationHint.class),
                 readEnum(node, "duration_hint", DurationHint.class),
                 node.path("conflict").asBoolean(false));
+    }
+
+    private String unwrapMarkdownCodeFence(String rawJson) {
+        String trimmed = rawJson.trim();
+        if (!trimmed.startsWith("```")) return trimmed;
+
+        int openingFenceEnd = trimmed.indexOf('\n');
+        if (openingFenceEnd < 0 || !trimmed.endsWith("```")) return trimmed;
+
+        String openingFence = trimmed.substring(0, openingFenceEnd).trim();
+        if (!openingFence.equals("```") && !openingFence.equalsIgnoreCase("```json")) {
+            return trimmed;
+        }
+
+        return trimmed.substring(openingFenceEnd + 1, trimmed.length() - 3).trim();
     }
 
     private BigDecimal readConfidence(JsonNode node) {

@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kinloop.backend.entity.enums.DifficultyHint;
+import com.kinloop.backend.entity.enums.DurationHint;
 import com.kinloop.backend.entity.enums.IntelligenceType;
 import com.kinloop.backend.entity.enums.SensoryHint;
 import com.kinloop.backend.entity.enums.SituationHint;
@@ -83,6 +85,44 @@ class FeedbackClassificationParserTest {
         assertEquals(SensoryHint.CROWDING, result.sensoryHint());
         assertEquals(SituationHint.TRANSIENT, result.situationHint());
         assertEquals(0, new BigDecimal("0.85").compareTo(result.confidence()));
+    }
+
+    @Test
+    void markdownJsonCodeFenceIsUnwrappedBeforeParsing() {
+        ParsedClassification result = parser.parse("""
+                ```json
+                {"target_correction":null,"secondary_hint":null,"sensory_hint":null,
+                 "involvement_hint":null,"difficulty_hint":"HARDER","situation_hint":null,
+                 "duration_hint":"SHORT","conflict":false,"confidence":0.85}
+                ```
+                """);
+
+        assertTrue(result.valid());
+        assertEquals(DifficultyHint.HARDER, result.difficultyHint());
+        assertEquals(DurationHint.SHORT, result.durationHint());
+        assertEquals(0, new BigDecimal("0.85").compareTo(result.confidence()));
+    }
+
+    @Test
+    void unlabeledMarkdownCodeFenceIsUnwrappedBeforeParsing() {
+        ParsedClassification result = parser.parse("""
+                ```
+                {"difficulty_hint":"EASIER","confidence":0.90}
+                ```
+                """);
+
+        assertTrue(result.valid());
+        assertEquals(DifficultyHint.EASIER, result.difficultyHint());
+        assertEquals(0, new BigDecimal("0.90").compareTo(result.confidence()));
+    }
+
+    @Test
+    void nonJsonMarkdownCodeFenceIsInvalid() {
+        assertFalse(parser.parse("""
+                ```javascript
+                {"confidence":0.85}
+                ```
+                """).valid());
     }
 
     @Test
