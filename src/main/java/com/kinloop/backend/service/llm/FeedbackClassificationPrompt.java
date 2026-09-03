@@ -53,6 +53,10 @@ public final class FeedbackClassificationPrompt {
                "galiba") confidence en fazla 0.60 olur.
             8. Duyusal, katılım, zorluk, durum ve süre ipuçları Gardner alanlarından
                BAĞIMSIZDIR. Bir metin hem Gardner sinyali hem duyusal ipucu taşıyabilir.
+               difficulty_hint çocuğun BUNDAN SONRA neye ihtiyacı olduğunu söyler:
+               kolay buldu, çabuk bitirdi -> HARDER; zorlandı, yapamadı -> EASIER.
+               duration_hint etkinliğin süresine dairdir:
+               uzun sürdü, yoruldu -> LONG; kısa geldi, devam istedi -> SHORT.
             9. Metin butonla çelişiyorsa conflict alanını true yap ama yine de
                diğer alanları doldur.
 
@@ -88,7 +92,7 @@ public final class FeedbackClassificationPrompt {
             }
             """;
     public static final String SYSTEM_PROMPT = INSTRUCTIONS
-            + "\n\nAŞAĞIDAKİ 13 ÖRNEĞİ SIRASIYLA REFERANS AL:\n\n"
+            + "\n\nAŞAĞIDAKİ 20 ÖRNEĞİ SIRASIYLA REFERANS AL:\n\n"
             + loadManyShotExamples();
 
     private FeedbackClassificationPrompt() {

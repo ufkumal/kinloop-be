@@ -7,12 +7,12 @@ import org.junit.jupiter.api.Test;
 
 class FeedbackClassificationPromptTest {
     @Test
-    void containsAllFortyOneV4FewShotExamples() {
-        var matcher = Pattern.compile("\\*\\*Ö\\d+\\*\\*")
+    void containsAllManyShotExamples() {
+        var matcher = Pattern.compile("### Örnek \\d+")
                 .matcher(FeedbackClassificationPrompt.SYSTEM_PROMPT);
         int count = 0;
         while (matcher.find()) count++;
-        assertEquals(41, count);
+        assertEquals(20, count);
     }
 
     @Test
@@ -23,5 +23,9 @@ class FeedbackClassificationPromptTest {
         org.junit.jupiter.api.Assertions.assertTrue(prompt.contains("sağlık, gelişim geriliği"));
         org.junit.jupiter.api.Assertions.assertTrue(prompt.contains("Olumsuz duygusal tepki"));
         org.junit.jupiter.api.Assertions.assertTrue(prompt.contains("doktor da gelişim geriliği olabilir dedi"));
+        org.junit.jupiter.api.Assertions.assertTrue(prompt.contains("çabuk bitirdi -> HARDER"));
+        org.junit.jupiter.api.Assertions.assertTrue(prompt.contains("zorlandı, yapamadı -> EASIER"));
+        org.junit.jupiter.api.Assertions.assertTrue(prompt.contains("uzun sürdü, yoruldu -> LONG"));
+        org.junit.jupiter.api.Assertions.assertTrue(prompt.contains("kısa geldi, devam istedi -> SHORT"));
     }
 }
